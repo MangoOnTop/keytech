@@ -14,14 +14,14 @@ struct Binding{
     int keyCode;
 };
 
-int main(){
+int main){
     Binding a, b;
     a.Player = 1;
     a.keyCode = 87;
     b.Player = 2;
     b.keyCode = 47;
     if(isDuplicate(a.keyCode, b.keyCode)){
-        cout << "waring!" <<endl;
+        cout << "waring!" <<endl
     }
     else{
         cout << "Player -> " << a.Player << "|" << "Keycode-> " <<a.keyCode << endl;
