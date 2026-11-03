@@ -1,38 +1,15 @@
 #include <iostream>
 #include <windows.h>
 #include <ViGEm/Client.h>
+#include "mapping.h"
 using namespace std;
 
-struct Mapping {
-    int key;      
-    WORD button;  
-    int player;   
-};
-
-Mapping mappings[] = {
-    // Player 1
-    {'W', XUSB_GAMEPAD_DPAD_UP,    0},
-    {'S', XUSB_GAMEPAD_DPAD_DOWN,  0},
-    {'A', XUSB_GAMEPAD_DPAD_LEFT,  0},
-    {'D', XUSB_GAMEPAD_DPAD_RIGHT, 0},
-    {'J', XUSB_GAMEPAD_A,          0},
-    {'K', XUSB_GAMEPAD_B,          0},
-    {'U', XUSB_GAMEPAD_X,          0},
-    {'I', XUSB_GAMEPAD_Y,          0},
-    // Player 2
-    {VK_UP,    XUSB_GAMEPAD_DPAD_UP,    1},
-    {VK_DOWN,  XUSB_GAMEPAD_DPAD_DOWN,  1},
-    {VK_LEFT,  XUSB_GAMEPAD_DPAD_LEFT,  1},
-    {VK_RIGHT, XUSB_GAMEPAD_DPAD_RIGHT, 1},
-    {VK_NUMPAD1, XUSB_GAMEPAD_A, 1},
-    {VK_NUMPAD2, XUSB_GAMEPAD_B, 1},
-    {VK_NUMPAD4, XUSB_GAMEPAD_X, 1},
-    {VK_NUMPAD5, XUSB_GAMEPAD_Y, 1},
-};
-
-XUSB_REPORT reports[2] = {};
 
 int main() {
+    if (hasDuplicates()) {
+        cout << "Fix the duplicate keys, then run again." << endl;
+        return 1;
+    }
     PVIGEM_CLIENT client = vigem_alloc();
 
     if (vigem_connect(client) != VIGEM_ERROR_NONE) {
@@ -49,6 +26,8 @@ int main() {
     cout << "Keytech running. Press Q to quit." << endl;
     bool active = true;      
     bool f9WasDown = false; 
+    XUSB_REPORT reports[2] = {};
+    
     while (true) {
         if (GetAsyncKeyState('Q') & 0x8000) {
             break;
