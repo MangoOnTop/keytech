@@ -1,1 +1,0 @@
-g++ -std=c++17 -I third_party/ViGEmClient/include src/main.cpp third_party/ViGEmClient/src/ViGEmClient.cpp -o keytech.exe -lsetupapi
