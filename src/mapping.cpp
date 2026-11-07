@@ -1,6 +1,9 @@
 #include "mapping.h"
+#include <fstream>
+#include "json.hpp"
 #include <iostream>
 using namespace std;
+using json = nlohmann::json;
 
 
 vector<Mapping> mappings = {
@@ -30,6 +33,23 @@ vector<Mapping> mappings = {
     {VK_DECIMAL,  XUSB_GAMEPAD_BACK,            1},
     {VK_NUMPAD6,  XUSB_GAMEPAD_LEFT_SHOULDER,   1},
     {VK_NUMPAD3,  XUSB_GAMEPAD_RIGHT_SHOULDER,  1},
+};
+
+struct ButtonName { const char* name; WORD value; };
+
+static const ButtonName buttonNames[] = {
+    {"UP",    XUSB_GAMEPAD_DPAD_UP},
+    {"DOWN",  XUSB_GAMEPAD_DPAD_DOWN},
+    {"LEFT",  XUSB_GAMEPAD_DPAD_LEFT},
+    {"RIGHT", XUSB_GAMEPAD_DPAD_RIGHT},
+    {"A",     XUSB_GAMEPAD_A},
+    {"B",     XUSB_GAMEPAD_B},
+    {"X",     XUSB_GAMEPAD_X},
+    {"Y",     XUSB_GAMEPAD_Y},
+    {"START", XUSB_GAMEPAD_START},
+    {"BACK",  XUSB_GAMEPAD_BACK},
+    {"LB",    XUSB_GAMEPAD_LEFT_SHOULDER},
+    {"RB",    XUSB_GAMEPAD_RIGHT_SHOULDER},
 };
 
 bool hasDuplicates() {

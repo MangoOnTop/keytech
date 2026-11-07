@@ -12,3 +12,7 @@ struct Mapping {
 extern std::vector<Mapping> mappings;
 
 bool hasDuplicates();
+
+#include <string>
+bool loadConfig(const std::string& path);
+bool saveConfig(const std::string& path);
