@@ -1,6 +1,6 @@
 #include "mapping.h"
-#include <fstream>
 #include "json.hpp"
+#include <fstream>
 #include <iostream>
 using namespace std;
 using json = nlohmann::json;
@@ -65,4 +65,49 @@ bool hasDuplicates() {
         }
     }
     return found;
+}
+
+bool loadConfig(const string& path) {
+    ifstream file(path);
+    if (!file) return false;                          // file missing
+
+    json data = json::parse(file, nullptr, false);    // false = don't crash on bad JSON
+    if (data.is_discarded() || !data.contains("mappings")) return false;
+
+    vector<Mapping> loaded;
+    for (auto& item : data["mappings"]) {
+        string name = item.value("button", "");
+        bool found = false;
+        for (auto& b : buttonNames) {
+            if (name == b.name) {
+                loaded.push_back({item.value("key", 0), b.value, item.value("player", 0)});
+                found = true;
+            }
+        }
+        if (!found) cout << "Unknown button in config: " << name << endl;
+    }
+
+    if (loaded.empty()) return false;
+    mappings = loaded;
+    return true;
+}
+
+bool saveConfig(const string& path) {
+    json data;
+    data["mappings"] = json::array();
+
+    for (Mapping m : mappings) {
+        for (auto& b : buttonNames) {
+            if (b.value == m.button) {
+                data["mappings"].push_back({
+                    {"player", m.player}, {"button", b.name}, {"key", m.key}
+                });
+            }
+        }
+    }
+
+    ofstream file(path);
+    if (!file) return false;
+    file << data.dump(2);                             // 2 = indented, readable
+    return true;
 }

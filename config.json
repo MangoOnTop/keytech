@@ -1,0 +1,124 @@
+{
+  "mappings": [
+    {
+      "button": "UP",
+      "key": 87,
+      "player": 0
+    },
+    {
+      "button": "DOWN",
+      "key": 83,
+      "player": 0
+    },
+    {
+      "button": "LEFT",
+      "key": 65,
+      "player": 0
+    },
+    {
+      "button": "RIGHT",
+      "key": 68,
+      "player": 0
+    },
+    {
+      "button": "A",
+      "key": 74,
+      "player": 0
+    },
+    {
+      "button": "B",
+      "key": 75,
+      "player": 0
+    },
+    {
+      "button": "X",
+      "key": 85,
+      "player": 0
+    },
+    {
+      "button": "Y",
+      "key": 73,
+      "player": 0
+    },
+    {
+      "button": "START",
+      "key": 69,
+      "player": 0
+    },
+    {
+      "button": "BACK",
+      "key": 82,
+      "player": 0
+    },
+    {
+      "button": "LB",
+      "key": 79,
+      "player": 0
+    },
+    {
+      "button": "RB",
+      "key": 76,
+      "player": 0
+    },
+    {
+      "button": "UP",
+      "key": 38,
+      "player": 1
+    },
+    {
+      "button": "DOWN",
+      "key": 40,
+      "player": 1
+    },
+    {
+      "button": "LEFT",
+      "key": 37,
+      "player": 1
+    },
+    {
+      "button": "RIGHT",
+      "key": 39,
+      "player": 1
+    },
+    {
+      "button": "A",
+      "key": 97,
+      "player": 1
+    },
+    {
+      "button": "B",
+      "key": 98,
+      "player": 1
+    },
+    {
+      "button": "X",
+      "key": 100,
+      "player": 1
+    },
+    {
+      "button": "Y",
+      "key": 101,
+      "player": 1
+    },
+    {
+      "button": "START",
+      "key": 96,
+      "player": 1
+    },
+    {
+      "button": "BACK",
+      "key": 110,
+      "player": 1
+    },
+    {
+      "button": "LB",
+      "key": 102,
+      "player": 1
+    },
+    {
+      "button": "RB",
+      "key": 99,
+      "player": 1
+    }
+  ]
+}

@@ -22,15 +22,20 @@ LRESULT CALLBACK keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
         if (k->vkCode < 256) {
             keyState[k->vkCode] = down;
         }
-        if (active && isMapped(k->vkCode)) {
-            return 1;  // swallow the key
+        if (active || k->vkCode == VK_F9) {
+            return 1;  // swallow everything while ON, and always swallow F9
         }
     }
     return CallNextHookEx(NULL, code, wParam, lParam);
 }
 
-
 int main() {
+    if (loadConfig("config.json")) {
+        cout << "Loaded config.json" << endl;
+    } else {
+        cout << "No valid config.json, using built-in defaults." << endl;
+        saveConfig("config.json");
+    }
     if (hasDuplicates()) {
         cout << "Fix the duplicate keys, then run again." << endl;
         return 1;
