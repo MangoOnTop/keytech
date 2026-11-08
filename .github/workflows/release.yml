@@ -1,0 +1,52 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"          # triggers on tags like v1.0, v1.0.1 etc.
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up MinGW
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          mkdir -p build
+          g++ -std=c++17 \
+            -I third_party/ViGEmClient/include \
+            -I third_party/json \
+            src/main.cpp src/mapping.cpp \
+            third_party/ViGEmClient/src/ViGEmClient.cpp \
+            -o build/keytech.exe -lsetupapi
+          echo "Build complete."
+
+      - name: Package release
+        shell: pwsh
+        run: |
+          Copy-Item config.json build\config.json
+          Compress-Archive -Path build\keytech.exe, build\config.json -DestinationPath build\keytech-${{ github.ref_name }}-windows.zip
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/keytech-${{ github.ref_name }}-windows.zip
+          body: |
+            ## keytech ${{ github.ref_name }}
+
+            ### Installation
+            1. Install [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest)
+            2. Download and extract `keytech-${{ github.ref_name }}-windows.zip`
+            3. Run `keytech.exe` before launching your game
