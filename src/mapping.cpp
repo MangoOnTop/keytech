@@ -7,7 +7,7 @@ using json = nlohmann::json;
 
 
 vector<Mapping> mappings = {
-    // Player 1
+    // Player 1 — WASD move, JUKILROE action keys
     {'W', XUSB_GAMEPAD_DPAD_UP,        0},
     {'S', XUSB_GAMEPAD_DPAD_DOWN,      0},
     {'A', XUSB_GAMEPAD_DPAD_LEFT,      0},
@@ -20,7 +20,7 @@ vector<Mapping> mappings = {
     {'R', XUSB_GAMEPAD_BACK,           0},
     {'O', XUSB_GAMEPAD_LEFT_SHOULDER,  0},
     {'L', XUSB_GAMEPAD_RIGHT_SHOULDER, 0},
-    // Player 2
+    // Player 2 — arrow keys move, numpad action keys
     {VK_UP,    XUSB_GAMEPAD_DPAD_UP,            1},
     {VK_DOWN,  XUSB_GAMEPAD_DPAD_DOWN,          1},
     {VK_LEFT,  XUSB_GAMEPAD_DPAD_LEFT,          1},
@@ -52,6 +52,14 @@ static const ButtonName buttonNames[] = {
     {"RB",    XUSB_GAMEPAD_RIGHT_SHOULDER},
 };
 
+// Returns true if the given virtual-key code is in the mappings list.
+bool isMapped(DWORD vk) {
+    for (const Mapping& m : mappings) {
+        if (m.key == (int)vk) return true;
+    }
+    return false;
+}
+
 bool hasDuplicates() {
     bool found = false;
 
@@ -82,6 +90,7 @@ bool loadConfig(const string& path) {
             if (name == b.name) {
                 loaded.push_back({item.value("key", 0), b.value, item.value("player", 0)});
                 found = true;
+                break;
             }
         }
         if (!found) cout << "Unknown button in config: " << name << endl;
@@ -102,6 +111,7 @@ bool saveConfig(const string& path) {
                 data["mappings"].push_back({
                     {"player", m.player}, {"button", b.name}, {"key", m.key}
                 });
+                break;
             }
         }
     }
