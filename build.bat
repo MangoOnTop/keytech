@@ -1,31 +1,43 @@
 @echo off
 if not exist build mkdir build
 
-echo [1/2] Compiling (static linking - no external DLLs needed)...
-g++ -std=c++17 ^
+echo [1/2] Compiling KEYTECH (Professional UI + In-Game Overlay)...
+g++ -std=c++17 -O2 ^
     -I third_party/ViGEmClient/include ^
     -I third_party/json ^
     src/main.cpp ^
     src/mapping.cpp ^
+    src/ui.cpp ^
     third_party/ViGEmClient/src/ViGEmClient.cpp ^
     -o build/keytech.exe ^
+    -lgdiplus ^
+    -lgdi32 ^
+    -luser32 ^
+    -ldwmapi ^
+    -lcomctl32 ^
+    -lwinmm ^
     -lsetupapi ^
     -static-libgcc ^
     -static-libstdc++ ^
-    -static
+    -static ^
+    -mwindows
 
 if errorlevel 1 (
-    echo Compilation failed.
+    echo.
+    echo Compilation failed! Please check error messages above.
     exit /b 1
 )
 
-echo [2/2] Verifying no MinGW runtime dependencies...
+echo [2/2] Verifying static binary dependencies...
 objdump -p build\keytech.exe | findstr "libgcc libstdc libwinpthread"
 if errorlevel 1 (
-    echo OK - no MinGW DLL dependencies. Exe is fully self-contained.
+    echo OK - Binary is 100%% self-contained. No external runtime DLLs required!
 ) else (
-    echo WARNING: some MinGW DLLs are still linked dynamically.
+    echo Note: Some MinGW DLLs were linked dynamically.
 )
 
 echo.
-echo Done. Run build\keytech.exe
+echo ========================================================
+echo   KEYTECH Build Succeeded!
+echo   Run: build\keytech.exe
+echo ========================================================

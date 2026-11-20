@@ -1,18 +1,32 @@
 #pragma once
 #include <vector>
+#include <string>
 #include <windows.h>
 #include <ViGEm/Client.h>
 
 struct Mapping {
-    int key;      // virtual-key code (VK_*)
+    int key;      // Virtual-key code (VK_*)
     WORD button;  // XUSB_GAMEPAD_* button bitmask
-    int player;   // 0 = pad 1, 1 = pad 2
+    int player;   // 0 = Player 1, 1 = Player 2
+};
+
+struct ButtonMeta {
+    WORD button;
+    const char* id;
+    const char* label;
 };
 
 extern std::vector<Mapping> mappings;
+extern const std::vector<ButtonMeta> g_availableButtons;
 
-#include <string>
+// Helper functions
+std::string getKeyName(int vkCode);
 bool isMapped(DWORD vk);
+std::vector<int> getDuplicateKeys();
 bool hasDuplicates();
+int getKeyForButton(int player, WORD button);
+void setMapping(int player, WORD button, int newKey);
+void resetToDefaults();
+
 bool loadConfig(const std::string& path);
 bool saveConfig(const std::string& path);

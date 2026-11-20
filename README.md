@@ -1,78 +1,67 @@
-# keytech
+# KEYTECH — Dual Virtual Gamepad Hub & In-Game Overlay
 
-**Play modern fighting games in local versus using only one keyboard.**
+**Play modern fighting games in local offline versus using only one keyboard.**
 
-keytech creates two virtual Xbox 360 controllers from keyboard input using
-[ViGEmBus](https://github.com/nefarius/ViGEmBus). Tested with KOF XV, Street Fighter V, and KOF XIII.
-
----
-
-## Requirements
-
-- Windows 10/11 (64-bit)
-- [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest) installed
-
-## Download
-
-Grab the latest `keytech.exe` from the [Releases](../../releases) page.
-
-> **Windows SmartScreen / Smart App Control**: On first run, Windows may warn you
-> because the binary is unsigned. Click **"More info" → "Run anyway"**, or see
-> [Building from source](#building-from-source) to compile it yourself.
+KEYTECH creates two virtual Xbox 360 controllers from keyboard input using [ViGEmBus](https://github.com/nefarius/ViGEmBus). It features a modern hardware-accelerated GUI dashboard, real-time input visualization, interactive key rebinding with conflict detection, and a floating in-game transparent overlay.
 
 ---
 
-## Default Key Mapping
+## ✨ Features
 
-| Action   | Player 1 | Player 2  |
-|----------|----------|-----------|
-| Up       | W        | ↑         |
-| Down     | S        | ↓         |
-| Left     | A        | ←         |
-| Right    | D        | →         |
-| A        | J        | Numpad 1  |
-| B        | K        | Numpad 2  |
-| X        | U        | Numpad 4  |
-| Y        | I        | Numpad 5  |
-| Start    | E        | Numpad 0  |
-| Back     | R        | Numpad .  |
-| LB       | O        | Numpad 6  |
-| RB       | L        | Numpad 3  |
-
-Toggle controllers on/off: **F9**  
-Quit: **Q**
+- **Dual Virtual Xbox 360 Gamepads**: Fully detected by modern fighting games (KOF XV, Street Fighter 6, SFV, Tekken 8, Guilty Gear, KOF XIII, etc.).
+- **Live Controller Visualizer**: Side-by-side graphical Xbox 360 gamepads for Player 1 (Neon Cyan) and Player 2 (Neon Coral). Buttons, D-pad directions, and bumpers illuminate in real time when keys are pressed.
+- **In-Game Overlay Mode (`F10`)**: Transform the window into a sleek, semi-transparent, frameless, Always-On-Top HUD that floats cleanly over borderless windowed games.
+- **Interactive Key Remapping**: Click any gamepad button in the app to rebind it ("Press any key..."). Includes automatic **duplicate key conflict detection & alerts**.
+- **Ultra-low Latency (1000 Hz)**: Dedicated background worker thread polls keyboard input and updates virtual controllers at 1ms intervals.
+- **Professional Windows UI**: Smooth GDI+ double-buffered rendering, dark theme, zero command prompt window (`-mwindows`), and clean in-app Exit button.
 
 ---
 
-## Customizing Key Bindings
+## 🎮 Hotkeys & Controls
 
-Edit `config.json` in the same folder as the exe. Keys are Windows
-[virtual-key codes](https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
-(decimal). Button names: `UP DOWN LEFT RIGHT A B X Y START BACK LB RB`.
+| Shortcut | Action |
+|:---:|---|
+| **F9** | **Toggle Controllers ON / OFF** (Switch between keyboard typing and gamepad mode) |
+| **F10** | **Toggle In-Game Overlay Mode** (Switch between Full Window and Floating Transparent HUD) |
+| **ESC** | Cancel key rebinding |
+| **Mouse Drag** | Drag the In-Game Overlay anywhere across your screen |
 
-```json
-{
-  "mappings": [
-    { "player": 0, "button": "A", "key": 74 },
-    { "player": 1, "button": "A", "key": 97 }
-  ]
-}
-```
+> **Note:** The previous `Q` to quit shortcut has been removed. You can now use the `Q` key in mappings freely! To exit, click the **Exit** button in the app header or the standard window close button `[X]`.
 
 ---
 
-## Usage
+## ⌨️ Default Key Mappings
 
-1. Install ViGEmBus (see Requirements).
-2. Run `keytech.exe` **before** launching your game.
-3. Launch the game — it will detect two Xbox 360 controllers.
-4. Press **F9** to toggle input on/off. Press **Q** to quit.
+| Action | Player 1 (WASD) | Player 2 (Numpad) |
+|---|:---:|:---:|
+| **D-Pad Up** | `W` | `↑` (Up Arrow) |
+| **D-Pad Down** | `S` | `↓` (Down Arrow) |
+| **D-Pad Left** | `A` | `←` (Left Arrow) |
+| **D-Pad Right** | `D` | `→` (Right Arrow) |
+| **Button A** (Bottom) | `J` | `Numpad 1` |
+| **Button B** (Right) | `K` | `Numpad 2` |
+| **Button X** (Left) | `U` | `Numpad 4` |
+| **Button Y** (Top) | `I` | `Numpad 5` |
+| **Bumper LB** | `O` | `Numpad 6` |
+| **Bumper RB** | `L` | `Numpad 3` |
+| **Back / Select** | `R` | `Numpad .` |
+| **Start / Menu** | `E` | `Numpad 0` |
 
 ---
 
-## Building from Source
+## 🚀 Quick Start
 
-**Prerequisites:** [MinGW-w64 / g++](https://www.mingw-w64.org/) on your PATH.
+1. Install the official [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest) (one-time requirement).
+2. Download or compile `keytech.exe`.
+3. Launch `keytech.exe` **before** launching your fighting game.
+4. Launch your game and enter Local Versus mode — both Player 1 and Player 2 controllers will be detected automatically!
+5. Press **F10** while in-game to see the floating controller overlay.
+
+---
+
+## 🛠️ Building from Source
+
+**Prerequisites:** [MSYS2 / MinGW-w64 (g++)](https://www.mingw-w64.org/) installed and available on your PATH.
 
 ```bat
 git clone --recurse-submodules https://github.com/YOUR_USERNAME/keytech.git
@@ -80,19 +69,10 @@ cd keytech
 build.bat
 ```
 
-The compiled binary lands in `build\keytech.exe`.
+The resulting `build\keytech.exe` is completely self-contained with zero external runtime DLL dependencies.
 
 ---
 
-## Third-party Libraries
+## 📄 License
 
-| Library | License | Purpose |
-|---------|---------|---------|
-| [ViGEmClient](https://github.com/nefarius/ViGEmBus) | MIT | Virtual Xbox 360 controller API |
-| [nlohmann/json](https://github.com/nlohmann/json) | MIT | JSON config file parsing |
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+MIT License — see [LICENSE](LICENSE).
