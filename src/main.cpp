@@ -303,6 +303,75 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 }
 
+// Startup driver install prompt — runs synchronously before the window is created
+bool tryInstallViGEmAtStartup() {
+    int choice = MessageBoxA(
+        NULL,
+        "KEYTECH needs the ViGEmBus driver to create virtual controllers.\n\n"
+        "Download and install it now?",
+        "KEYTECH \xE2\x80\x94 ViGEmBus Driver Required",
+        MB_YESNO | MB_ICONQUESTION
+    );
+
+    if (choice != IDYES) return false; // user declined — caller should exit
+
+    // Download installer to temp folder
+    char tempDir[MAX_PATH];
+    GetTempPathA(MAX_PATH, tempDir);
+    std::string installerPath = std::string(tempDir) + "ViGEmBus_Setup.exe";
+
+    const char* url = "https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe";
+    bool downloaded = false;
+
+    if (SUCCEEDED(URLDownloadToFileA(NULL, url, installerPath.c_str(), 0, NULL))) {
+        downloaded = true;
+    } else {
+        std::string cmd = "curl.exe -L -s -o \"" + installerPath + "\" \"" + std::string(url) + "\"";
+        if (system(cmd.c_str()) == 0) downloaded = true;
+    }
+
+    if (!downloaded) {
+        MessageBoxA(
+            NULL,
+            "Could not download the ViGEmBus driver.\n\n"
+            "Please download it manually from:\n"
+            "https://github.com/nefarius/ViGEmBus/releases/latest",
+            "KEYTECH — Download Failed",
+            MB_OK | MB_ICONERROR
+        );
+        return false; // caller should exit
+    }
+
+    // Run installer elevated
+    SHELLEXECUTEINFOA sei = { sizeof(sei) };
+    sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+    sei.lpVerb = "runas";
+    sei.lpFile = installerPath.c_str();
+    sei.lpParameters = "/passive /norestart";
+    sei.nShow = SW_SHOWNORMAL;
+
+    if (ShellExecuteExA(&sei)) {
+        WaitForSingleObject(sei.hProcess, 180000);
+        CloseHandle(sei.hProcess);
+    }
+
+    DeleteFileA(installerPath.c_str());
+
+    // Retry connection
+    if (connectViGEm()) {
+        return true; // success — continue launching
+    }
+
+    MessageBoxA(
+        NULL,
+        "ViGEmBus driver installed but could not connect.\n\n"
+        "Please restart your PC and reopen KEYTECH.",
+        "KEYTECH — Restart Required",
+        MB_OK | MB_ICONWARNING
+    );
+    return false; // caller should exit
+}
+
 // Application Entry Point
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     (void)hPrevInstance;
@@ -317,7 +386,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     initGDIPlus();
 
     // 3. Connect to ViGEmBus (checks if driver is installed)
-    connectViGEm();
+    if (!connectViGEm()) {
+        if (!tryInstallViGEmAtStartup()) {
+            shutdownGDIPlus();
+            return 0;
+        }
+    }
 
     // 4. Register Win32 Window Class
     WNDCLASSEX wc = {};

@@ -34,6 +34,7 @@ g++ -std=c++17 -O2 ^
     -lole32 ^
     -luuid ^
     -lurlmon ^
+    -lshell32 ^
     -static-libgcc ^
     -static-libstdc++ ^
     -static ^
@@ -65,6 +66,7 @@ g++ -std=c++17 -O2 ^
     -lole32 ^
     -luuid ^
     -lurlmon ^
+    -lshell32 ^
     -static-libgcc ^
     -static-libstdc++ ^
     -static ^

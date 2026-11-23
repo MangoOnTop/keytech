@@ -38,7 +38,7 @@ jobs:
             third_party/ViGEmClient/src/ViGEmClient.cpp \
             resource.o \
             -o build/keytech.exe \
-            -lgdiplus -lgdi32 -luser32 -ldwmapi -lcomctl32 -lwinmm -lsetupapi -lole32 -luuid -lurlmon \
+            -lgdiplus -lgdi32 -luser32 -ldwmapi -lcomctl32 -lwinmm -lsetupapi -lole32 -luuid -lurlmon -lshell32 \
             -static-libgcc -static-libstdc++ -static -mwindows
 
           # 3. Compile Installer Resources
@@ -50,25 +50,36 @@ jobs:
             installer.cpp \
             installer.res.o \
             -o ../build/KeytechSetup.exe \
-            -lgdiplus -lgdi32 -luser32 -lcomctl32 -lole32 -luuid -lurlmon \
+            -lgdiplus -lgdi32 -luser32 -lcomctl32 -lole32 -luuid -lurlmon -lshell32 \
             -static-libgcc -static-libstdc++ -static -mwindows
           cd ..
 
           echo "Build complete."
 
-      - name: Package Portable Release
-        shell: pwsh
-        run: |
-          Copy-Item config.json build\config.json
-          Copy-Item icon.ico build\icon.ico
-          Compress-Archive -Path build\keytech.exe, build\config.json, build\icon.ico -DestinationPath build\keytech-portable.zip
+      # ── Code Signing Placeholder (SignPath) ───────────────────────────
+      # To enable code signing once SignPath Foundation application is approved:
+      # 1. Sign up at https://about.signpath.io/product/foss
+      # 2. Add repository secrets: SIGNPATH_API_TOKEN, SIGNPATH_ORG_ID
+      # 3. Uncomment this step to sign KeytechSetup.exe
+      # 4. Update the release asset upload path to the signed artifact
+      # ─────────────────────────────────────────────────────────────────
+      # - name: Sign KeytechSetup.exe with SignPath
+      #   uses: signpath/github-action-submit-signing-request@v1
+      #   with:
+      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }} # Secret configured in repo settings
+      #     organization-id: ${{ secrets.SIGNPATH_ORG_ID }} # Organization ID from SignPath dashboard
+      #     project-slug: "keytech" # Project slug registered in SignPath
+      #     signing-policy-slug: "release-signing" # Signing policy name configured in SignPath
+      #     artifact-configuration-slug: "exe"
+      #     github-artifact-id: "KeytechSetup.exe"
+      #     wait-for-completion: true
+      #     output-artifact-directory: "build/signed"
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             build/KeytechSetup.exe
-            build/keytech-portable.zip
           body: |
             # KEYTECH ${{ github.ref_name }} — Dual Virtual Gamepad Hub & In-Game Overlay
 
@@ -79,8 +90,6 @@ jobs:
             ### 🚀 One-Click Download & Installation
             - **[Download KeytechSetup.exe (One-Click Installer)](https://github.com/${{ github.repository }}/releases/latest/download/KeytechSetup.exe)**
               *(Downloads and installs automatically with desktop icon and start menu shortcuts. No terminal needed!)*
-            - **[Download keytech-portable.zip](https://github.com/${{ github.repository }}/releases/latest/download/keytech-portable.zip)**
-              *(Portable edition: extract and run directly without installation.)*
 
             ---
 
