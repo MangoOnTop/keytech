@@ -305,8 +305,22 @@ static void drawCleanGamepad(Graphics& g, float cx, float cy, float scale, int p
     g.DrawString(pTitle, -1, &badgeFont, pBadge, &sfCenter, &accentBrush);
 
     // ---------------------------------------------------------
-    // 1. Shoulder Bumpers (LB & RB) sitting flush atop chassis
+    // 1. Triggers & Shoulder Bumpers (LT/RT peeks & LB/RB flush)
     // ---------------------------------------------------------
+    // Trigger peeks behind bumpers for 3D depth
+    auto drawTrigger = [&](float tx, float ty, float tw, float th) {
+        RectF r(tx, ty, tw, th);
+        GraphicsPath tp;
+        addRoundedRect(tp, r, 5.0f * scale);
+        SolidBrush tb(Color(255, 18, 22, 30));
+        g.FillPath(&tb, &tp);
+        Pen tpPen(Color(255, 40, 48, 64), 1.0f);
+        g.DrawPath(&tpPen, &tp);
+    };
+    drawTrigger(cx - 100 * scale, cy - 82 * scale, 54 * scale, 14 * scale);
+    drawTrigger(cx + 46 * scale, cy - 82 * scale, 54 * scale, 14 * scale);
+
+    // Bumpers (LB & RB)
     auto drawBumper = [&](float bx, float by, float bw, float bh, WORD mask, const wchar_t* lbl) {
         bool pressed = (report.wButtons & mask) != 0;
         RectF r(bx, by, bw, bh);
@@ -322,7 +336,7 @@ static void drawCleanGamepad(Graphics& g, float cx, float cy, float scale, int p
             Font bFont(L"Segoe UI", (int)(11 * scale), FontStyleBold, UnitPixel);
             g.DrawString(lbl, -1, &bFont, r, &sfCenter, &txt);
         } else {
-            SolidBrush b(Color(255, 32, 38, 50));
+            SolidBrush b(Color(255, 34, 40, 54));
             g.FillPath(&b, &bp);
             Pen p(Theme::CARD_BORDER_HI, 1.0f);
             g.DrawPath(&p, &bp);
@@ -432,6 +446,22 @@ static void drawCleanGamepad(Graphics& g, float cx, float cy, float scale, int p
     // Subtle ergonomic grip accent line (no heavy glow!)
     Pen gripAccent(Color(50, accent.GetR(), accent.GetG(), accent.GetB()), 1.0f * scale);
     g.DrawPath(&gripAccent, &bodyPath);
+
+    // Ergonomic grip contour lines for textured depth
+    auto drawGripContour = [&](bool isRight) {
+        float dir = isRight ? 1.0f : -1.0f;
+        GraphicsPath gp;
+        gp.AddBezier(
+            cx + dir * 118 * scale, cy - 6 * scale,
+            cx + dir * 126 * scale, cy + 30 * scale,
+            cx + dir * 115 * scale, cy + 68 * scale,
+            cx + dir * 96 * scale,  cy + 80 * scale
+        );
+        Pen gpPen(Color(25, 255, 255, 255), 1.0f * scale);
+        g.DrawPath(&gpPen, &gp);
+    };
+    drawGripContour(false);
+    drawGripContour(true);
 
     // ---------------------------------------------------------
     // 3. Center Guide Emblem (Sleek Circle, NO weird X!)
@@ -589,6 +619,11 @@ static void drawCleanGamepad(Graphics& g, float cx, float cy, float scale, int p
             g.FillEllipse(&b, r);
             Pen p(baseCol, 1.5f * scale);
             g.DrawEllipse(&p, r);
+
+            // Specular crescent highlight on top edge
+            Pen specPen(Color(100, 255, 255, 255), 1.0f);
+            g.DrawArc(&specPen, bx - btnR + 2, by - btnR + 2, dia - 4, dia - 4, 200, 140);
+
             SolidBrush txt(baseCol);
             Font letterFont(L"Segoe UI", (int)(11 * scale), FontStyleBold, UnitPixel);
             g.DrawString(letter, -1, &letterFont, r, &sfCenter, &txt);
