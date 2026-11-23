@@ -1,4 +1,4 @@
-# KEYTECH // Dual Virtual Gamepad Hub & In-Game Overlay
+﻿# KEYTECH // Dual Virtual Gamepad Hub & In-Game Overlay
 
 **Play modern fighting games in local offline versus using only one keyboard.**
 
@@ -12,6 +12,20 @@ KEYTECH creates two virtual Xbox 360 controllers from keyboard input using [ViGE
 |---|---|:---:|
 | **One-Click Installer** | Self-contained installer that places a shortcut on your Desktop and Start Menu, registers uninstaller, and launches automatically. | **[Download KeytechSetup.exe](https://github.com/MangoOnTop/keytech/releases/latest/download/KeytechSetup.exe)** |
 | **Portable Zip** | Standalone zip package: extract and run `keytech.exe` directly without installation. | **[Download keytech-portable.zip](https://github.com/MangoOnTop/keytech/releases/latest/download/keytech-portable.zip)** |
+
+### Warning: Windows Security (SmartScreen)
+
+Windows may show a **Windows protected your PC** warning when you run the installer. This is normal for any new, unsigned app.
+
+**To bypass it:**
+1. Click **More info** (small link below the warning)
+2. Click **Run anyway**
+
+> **Alternative:** Right-click `KeytechSetup.exe` then Properties then tick **Unblock** at the bottom then Apply then run it.
+
+The source code is 100% open here on GitHub for anyone to audit.
+
+---
 
 ### 🛠️ One-Click Setup (Zero Manual Driver Work):
 1. Download and double-click **`KeytechSetup.exe`**.
