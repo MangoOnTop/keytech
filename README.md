@@ -13,11 +13,15 @@ KEYTECH creates two virtual Xbox 360 controllers from keyboard input using [ViGE
 | **One-Click Installer** | Self-contained installer that places a shortcut on your Desktop and Start Menu, registers uninstaller, and launches automatically. | **[Download KeytechSetup.exe](https://github.com/YOUR_USERNAME/keytech/releases/latest/download/KeytechSetup.exe)** |
 | **Portable Zip** | Standalone zip package: extract and run `keytech.exe` directly without installation. | **[Download keytech-portable.zip](https://github.com/YOUR_USERNAME/keytech/releases/latest/download/keytech-portable.zip)** |
 
-### 🛠️ One-Time Setup:
-1. Download and run the official [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest) installer.
-2. Download and double-click **`KeytechSetup.exe`**.
-3. Click **"INSTALL KEYTECH"** — the installer automatically places a glowing gamepad icon on your Desktop and opens the application.
-4. Launch your fighting game (KOF XV, Street Fighter 6, Tekken 8, Guilty Gear, etc.) — both controllers will be recognized automatically!
+### 🛠️ One-Click Setup (Zero Manual Driver Work):
+1. Download and double-click **`KeytechSetup.exe`**.
+2. Click **"INSTALL KEYTECH"**:
+   - The installer automatically detects if the ViGEmBus driver is present.
+   - If missing, it **auto-downloads and installs ViGEmBus** for you!
+   - If already installed, it automatically skips the download.
+   - Automatically places a glowing gamepad icon on your Desktop and Start Menu.
+3. Launch your fighting game (KOF XV, Street Fighter 6, Tekken 8, Guilty Gear, etc.) — both controllers will be recognized automatically!
+4. When uninstalling, KEYTECH cleanly removes itself and offers to remove the ViGEmBus driver too.
 
 ---
 

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <thread>
 #include <atomic>
+#include <urlmon.h>
 #include <ViGEm/Client.h>
 #include "mapping.h"
 #include "ui.h"
@@ -157,6 +158,70 @@ void controllerWorker() {
     }
 }
 
+bool connectViGEm() {
+    if (g_vigemClient && g_pad1 && g_pad2) {
+        g_state.vigemConnected = true;
+        return true;
+    }
+    if (!g_vigemClient) g_vigemClient = vigem_alloc();
+    if (g_vigemClient && vigem_connect(g_vigemClient) == VIGEM_ERROR_NONE) {
+        if (!g_pad1) g_pad1 = vigem_target_x360_alloc();
+        if (!g_pad2) g_pad2 = vigem_target_x360_alloc();
+        if (vigem_target_add(g_vigemClient, g_pad1) == VIGEM_ERROR_NONE &&
+            vigem_target_add(g_vigemClient, g_pad2) == VIGEM_ERROR_NONE) {
+            g_state.vigemConnected = true;
+            return true;
+        }
+    }
+    g_state.vigemConnected = false;
+    return false;
+}
+
+DWORD WINAPI autoInstallViGEmWorker(LPVOID) {
+    triggerToast(g_state, "Downloading ViGEmBus installer...");
+    if (g_hwnd) InvalidateRect(g_hwnd, NULL, FALSE);
+
+    char tempDir[MAX_PATH];
+    GetTempPathA(MAX_PATH, tempDir);
+    std::string installerPath = std::string(tempDir) + "ViGEmBus_Setup.exe";
+
+    const char* url = "https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe";
+    bool downloaded = false;
+
+    if (SUCCEEDED(URLDownloadToFileA(NULL, url, installerPath.c_str(), 0, NULL))) {
+        downloaded = true;
+    } else {
+        std::string cmd = "curl.exe -L -s -o \"" + installerPath + "\" \"" + std::string(url) + "\"";
+        if (system(cmd.c_str()) == 0) downloaded = true;
+    }
+
+    if (downloaded) {
+        triggerToast(g_state, "Installing driver (Approve Windows UAC prompt)...");
+        if (g_hwnd) InvalidateRect(g_hwnd, NULL, FALSE);
+
+        SHELLEXECUTEINFOA sei = { sizeof(sei) };
+        sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+        sei.lpVerb = "runas";
+        sei.lpFile = installerPath.c_str();
+        sei.lpParameters = "/passive /norestart";
+        sei.nShow = SW_SHOWNORMAL;
+        if (ShellExecuteExA(&sei)) {
+            WaitForSingleObject(sei.hProcess, 180000);
+            CloseHandle(sei.hProcess);
+            DeleteFileA(installerPath.c_str());
+        }
+    }
+
+    if (connectViGEm()) {
+        triggerToast(g_state, "ViGEmBus Online! Dual Gamepads Active.");
+    } else {
+        triggerToast(g_state, "Could not connect to ViGEmBus driver.");
+    }
+
+    if (g_hwnd) InvalidateRect(g_hwnd, NULL, FALSE);
+    return 0;
+}
+
 // Main Window Procedure
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
@@ -181,6 +246,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             } else if (LOWORD(wParam) == 1002) {
                 // Toggle F10 Overlay
                 toggleOverlayMode();
+            } else if (LOWORD(wParam) == 1003) {
+                // Auto-install ViGEmBus driver
+                CreateThread(NULL, 0, autoInstallViGEmWorker, NULL, 0, NULL);
             }
             return 0;
         }
@@ -248,16 +316,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // 2. Initialize GDI+
     initGDIPlus();
 
-    // 3. Connect to ViGEmBus
-    g_vigemClient = vigem_alloc();
-    if (g_vigemClient && vigem_connect(g_vigemClient) == VIGEM_ERROR_NONE) {
-        g_pad1 = vigem_target_x360_alloc();
-        g_pad2 = vigem_target_x360_alloc();
-        if (vigem_target_add(g_vigemClient, g_pad1) == VIGEM_ERROR_NONE &&
-            vigem_target_add(g_vigemClient, g_pad2) == VIGEM_ERROR_NONE) {
-            g_state.vigemConnected = true;
-        }
-    }
+    // 3. Connect to ViGEmBus (checks if driver is installed)
+    connectViGEm();
 
     // 4. Register Win32 Window Class
     WNDCLASSEX wc = {};

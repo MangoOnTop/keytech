@@ -38,7 +38,7 @@ jobs:
             third_party/ViGEmClient/src/ViGEmClient.cpp \
             resource.o \
             -o build/keytech.exe \
-            -lgdiplus -lgdi32 -luser32 -ldwmapi -lcomctl32 -lwinmm -lsetupapi -lole32 -luuid \
+            -lgdiplus -lgdi32 -luser32 -ldwmapi -lcomctl32 -lwinmm -lsetupapi -lole32 -luuid -lurlmon \
             -static-libgcc -static-libstdc++ -static -mwindows
 
           # 3. Compile Installer Resources
@@ -50,7 +50,7 @@ jobs:
             installer.cpp \
             installer.res.o \
             -o ../build/KeytechSetup.exe \
-            -lgdiplus -lgdi32 -luser32 -lcomctl32 -lole32 -luuid \
+            -lgdiplus -lgdi32 -luser32 -lcomctl32 -lole32 -luuid -lurlmon \
             -static-libgcc -static-libstdc++ -static -mwindows
           cd ..
 

@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <gdiplus.h>
 #include <shlobj.h>
+#include <urlmon.h>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -18,16 +19,111 @@ enum InstallState {
     STATE_READY = 0,
     STATE_INSTALLING = 1,
     STATE_DONE = 2,
-    STATE_FAILED = 3
+    STATE_FAILED = 3,
+    STATE_UNINSTALLING = 4,
+    STATE_UNINSTALLED = 5
 };
 
 static InstallState g_state = STATE_READY;
+static bool g_isUninstallMode = false;
 static bool g_optDesktopShortcut = true;
 static bool g_optStartMenu = true;
 static bool g_optLaunchNow = true;
+static bool g_vigemAlreadyInstalled = false;
 static std::string g_statusMsg = "Ready to install KEYTECH v2.0";
 static std::string g_errorMsg = "";
 static std::string g_installDir = "";
+
+// Check if ViGEmBus driver service is registered in Windows
+bool isViGEmBusInstalled() {
+    HKEY hKey;
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Services\\ViGEmBus", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        return true;
+    }
+    return false;
+}
+
+// Download ViGEmBus installer from official release
+bool downloadViGEmInstaller(const std::string& targetPath) {
+    const char* url = "https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe";
+    
+    // Method 1: URLDownloadToFile
+    HRESULT hr = URLDownloadToFileA(NULL, url, targetPath.c_str(), 0, NULL);
+    if (SUCCEEDED(hr)) {
+        HANDLE hFile = CreateFileA(targetPath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+        if (hFile != INVALID_HANDLE_VALUE) {
+            DWORD sz = GetFileSize(hFile, NULL);
+            CloseHandle(hFile);
+            if (sz > 300000) return true;
+        }
+    }
+
+    // Method 2: Fallback to curl.exe (built-in Windows 10/11)
+    std::string cmd = "curl.exe -L -s -o \"" + targetPath + "\" \"" + std::string(url) + "\"";
+    int res = system(cmd.c_str());
+    if (res == 0) {
+        HANDLE hFile = CreateFileA(targetPath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+        if (hFile != INVALID_HANDLE_VALUE) {
+            DWORD sz = GetFileSize(hFile, NULL);
+            CloseHandle(hFile);
+            if (sz > 300000) return true;
+        }
+    }
+
+    // Method 3: Fallback to PowerShell
+    std::string psCmd = "powershell -NoProfile -ExecutionPolicy Bypass -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object Net.WebClient).DownloadFile('" + std::string(url) + "', '" + targetPath + "')\"";
+    res = system(psCmd.c_str());
+    if (res == 0) {
+        HANDLE hFile = CreateFileA(targetPath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+        if (hFile != INVALID_HANDLE_VALUE) {
+            DWORD sz = GetFileSize(hFile, NULL);
+            CloseHandle(hFile);
+            if (sz > 300000) return true;
+        }
+    }
+
+    return false;
+}
+
+// Auto-install ViGEmBus driver
+bool installViGEmBusDriver() {
+    char tempDir[MAX_PATH];
+    GetTempPathA(MAX_PATH, tempDir);
+    std::string installerPath = std::string(tempDir) + "ViGEmBus_Setup.exe";
+
+    // Check if offline installer was packaged alongside KeytechSetup.exe
+    char localDir[MAX_PATH];
+    GetModuleFileNameA(NULL, localDir, MAX_PATH);
+    std::string selfDir = std::string(localDir).substr(0, std::string(localDir).find_last_of("\\/"));
+    std::string offlineInstaller = selfDir + "\\ViGEmBus_Setup.exe";
+
+    if (GetFileAttributesA(offlineInstaller.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        installerPath = offlineInstaller;
+    } else {
+        if (!downloadViGEmInstaller(installerPath)) {
+            return false;
+        }
+    }
+
+    // Launch ViGEmBus installer with UAC elevation & passive progress
+    SHELLEXECUTEINFOA sei = { sizeof(sei) };
+    sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+    sei.lpVerb = "runas";
+    sei.lpFile = installerPath.c_str();
+    sei.lpParameters = "/passive /norestart";
+    sei.nShow = SW_SHOWNORMAL;
+
+    if (ShellExecuteExA(&sei)) {
+        WaitForSingleObject(sei.hProcess, 180000); // Wait up to 3 mins
+        DWORD exitCode = 0;
+        GetExitCodeProcess(sei.hProcess, &exitCode);
+        CloseHandle(sei.hProcess);
+        DeleteFileA(installerPath.c_str());
+        return isViGEmBusInstalled();
+    }
+    return false;
+}
 
 // Helper to get local appdata programs path
 std::string getDefaultInstallPath() {
@@ -48,7 +144,6 @@ bool createShortcut(const std::string& targetPath, const std::string& shortcutPa
         psl->SetPath(targetPath.c_str());
         psl->SetDescription(desc.c_str());
         
-        // Working directory = target directory
         std::string workDir = targetPath.substr(0, targetPath.find_last_of("\\/"));
         psl->SetWorkingDirectory(workDir.c_str());
 
@@ -103,7 +198,7 @@ void registerUninstaller(const std::string& installDir) {
         std::string icon = installDir + "\\icon.ico";
         std::string ver = "2.0.0";
         std::string pub = "Keytech Project";
-        std::string uninst = "cmd.exe /c rd /s /q \"" + installDir + "\" & del \"%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Keytech.lnk\" & del \"%USERPROFILE%\\Desktop\\Keytech.lnk\" & reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Keytech\" /f";
+        std::string uninst = "\"" + installDir + "\\KeytechSetup.exe\" /uninstall";
 
         RegSetValueExA(hKey, "DisplayName", 0, REG_SZ, (const BYTE*)name.c_str(), name.length() + 1);
         RegSetValueExA(hKey, "DisplayIcon", 0, REG_SZ, (const BYTE*)icon.c_str(), icon.length() + 1);
@@ -115,40 +210,110 @@ void registerUninstaller(const std::string& installDir) {
     }
 }
 
-// Run the installation
-DWORD WINAPI doInstallThread(LPVOID) {
-    g_state = STATE_INSTALLING;
-    g_statusMsg = "Creating directory structure...";
+// Uninstall execution thread
+DWORD WINAPI doUninstallThread(LPVOID) {
+    g_state = STATE_UNINSTALLING;
+    g_statusMsg = "Removing KEYTECH shortcuts and registration...";
     InvalidateRect(g_hwnd, NULL, FALSE);
     Sleep(300);
 
-    // Create directories
+    // Remove shortcuts
+    char deskPath[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, deskPath))) {
+        std::string sc = std::string(deskPath) + "\\Keytech.lnk";
+        DeleteFileA(sc.c_str());
+    }
+
+    char smPath[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_PROGRAMS, NULL, 0, smPath))) {
+        std::string smDir = std::string(smPath) + "\\Keytech";
+        std::string sc = smDir + "\\Keytech.lnk";
+        DeleteFileA(sc.c_str());
+        RemoveDirectoryA(smDir.c_str());
+    }
+
+    // Delete registry
+    RegDeleteKeyA(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Keytech");
+
+    // Optional ViGEmBus removal prompt
+    if (isViGEmBusInstalled()) {
+        int choice = MessageBoxA(g_hwnd, 
+            "KEYTECH files and shortcuts have been removed.\n\n"
+            "Would you also like to launch the Windows uninstaller for the ViGEmBus driver?",
+            "KEYTECH Uninstaller - ViGEmBus Driver",
+            MB_YESNO | MB_ICONQUESTION);
+        
+        if (choice == IDYES) {
+            // Open Windows Installed Apps / Settings so user can cleanly uninstall ViGEmBus
+            ShellExecuteA(NULL, "open", "ms-settings:appsfeatures", NULL, NULL, SW_SHOWNORMAL);
+        }
+    }
+
+    // Delete application files on exit via cmd
+    std::string selfDelete = "cmd.exe /c ping 127.0.0.1 -n 2 > nul & rd /s /q \"" + g_installDir + "\"";
+    ShellExecuteA(NULL, "open", "cmd.exe", ("/c " + selfDelete).c_str(), NULL, SW_HIDE);
+
+    g_state = STATE_UNINSTALLED;
+    g_statusMsg = "KEYTECH has been completely uninstalled.";
+    InvalidateRect(g_hwnd, NULL, FALSE);
+    Sleep(1000);
+    PostMessage(g_hwnd, WM_CLOSE, 0, 0);
+    return 0;
+}
+
+// Installation execution thread
+DWORD WINAPI doInstallThread(LPVOID) {
+    g_state = STATE_INSTALLING;
+
+    // Step 1: Check and auto-install ViGEmBus driver
+    if (!g_vigemAlreadyInstalled) {
+        g_statusMsg = "Checking ViGEmBus virtual gamepad driver...";
+        InvalidateRect(g_hwnd, NULL, FALSE);
+        Sleep(300);
+
+        if (!isViGEmBusInstalled()) {
+            g_statusMsg = "Auto-downloading official ViGEmBus driver...";
+            InvalidateRect(g_hwnd, NULL, FALSE);
+
+            g_statusMsg = "Installing ViGEmBus driver (Please approve UAC prompt)...";
+            InvalidateRect(g_hwnd, NULL, FALSE);
+
+            installViGEmBusDriver();
+        }
+    }
+
+    // Step 2: Create directory structure
+    g_statusMsg = "Creating application directories...";
+    InvalidateRect(g_hwnd, NULL, FALSE);
     CreateDirectoryA(g_installDir.c_str(), NULL);
 
-    // Extract files
-    g_statusMsg = "Extracting KEYTECH engine & binaries...";
+    // Step 3: Extract files
+    g_statusMsg = "Extracting KEYTECH engine and assets...";
     InvalidateRect(g_hwnd, NULL, FALSE);
 
     std::string exeDest = g_installDir + "\\keytech.exe";
     std::string cfgDest = g_installDir + "\\config.json";
     std::string icoDest = g_installDir + "\\icon.ico";
+    std::string installerDest = g_installDir + "\\KeytechSetup.exe";
 
     bool okExe = extractResource(IDR_EXE, exeDest);
     bool okCfg = extractResource(IDR_CONFIG, cfgDest);
     bool okIco = extractResource(IDR_ICON, icoDest);
 
+    // Copy setup itself into program folder for clean uninstallation
+    char selfPath[MAX_PATH];
+    GetModuleFileNameA(NULL, selfPath, MAX_PATH);
+    CopyFileA(selfPath, installerDest.c_str(), FALSE);
+
     if (!okExe) {
-        // Fallback: check if keytech.exe exists next to installer
-        char localDir[MAX_PATH];
-        GetModuleFileNameA(NULL, localDir, MAX_PATH);
-        std::string selfDir = std::string(localDir).substr(0, std::string(localDir).find_last_of("\\/"));
+        std::string selfDir = std::string(selfPath).substr(0, std::string(selfPath).find_last_of("\\/"));
         CopyFileA((selfDir + "\\keytech.exe").c_str(), exeDest.c_str(), FALSE);
         CopyFileA((selfDir + "\\config.json").c_str(), cfgDest.c_str(), FALSE);
         CopyFileA((selfDir + "\\icon.ico").c_str(), icoDest.c_str(), FALSE);
     }
 
     Sleep(300);
-    g_statusMsg = "Configuring system shortcuts and registration...";
+    g_statusMsg = "Creating desktop and start menu shortcuts...";
     InvalidateRect(g_hwnd, NULL, FALSE);
 
     // Desktop Shortcut
@@ -171,12 +336,12 @@ DWORD WINAPI doInstallThread(LPVOID) {
         }
     }
 
-    // Uninstaller Registration
+    // Windows Add/Remove Programs registration
     registerUninstaller(g_installDir);
 
     Sleep(400);
     g_state = STATE_DONE;
-    g_statusMsg = "Installation Complete! Ready to play.";
+    g_statusMsg = "Installation Complete! Gamepads ready.";
     InvalidateRect(g_hwnd, NULL, FALSE);
 
     if (g_optLaunchNow) {
@@ -240,107 +405,153 @@ void renderInstaller(HDC hdc, int width, int height) {
     Font titleFont(L"Segoe UI", 16, FontStyleBold, UnitPixel);
     Font subFont(L"Segoe UI", 10, FontStyleBold, UnitPixel);
     Font bodyFont(L"Segoe UI", 11, FontStyleRegular, UnitPixel);
+    Font badgeFont(L"Segoe UI", 10, FontStyleBold, UnitPixel);
     Font btnFont(L"Segoe UI", 12, FontStyleBold, UnitPixel);
 
     SolidBrush cyanBrush(Color(255, 0, 240, 255));
     SolidBrush whiteBrush(Color(255, 245, 248, 255));
+    SolidBrush greenBrush(Color(255, 0, 230, 118));
+    SolidBrush amberBrush(Color(255, 255, 185, 0));
     SolidBrush mutedBrush(Color(255, 125, 136, 162));
-
-    g.DrawString(L"KEYTECH SETUP WIZARD", -1, &titleFont, PointF(24, 16), &cyanBrush);
-    g.DrawString(L"// DUAL VIRTUAL XBOX 360 GAMEPAD ENGINE", -1, &subFont, PointF(24, 42), &mutedBrush);
 
     StringFormat sfCenter;
     sfCenter.SetAlignment(StringAlignmentCenter);
     sfCenter.SetLineAlignment(StringAlignmentCenter);
 
-    if (g_state == STATE_READY) {
-        // Welcome and destination card
-        RectF card(24, 95, width - 48.0f, 160.0f);
+    if (g_isUninstallMode) {
+        g.DrawString(L"KEYTECH UNINSTALL WIZARD", -1, &titleFont, PointF(24, 16), &cyanBrush);
+        g.DrawString(L"// REMOVE DUAL VIRTUAL GAMEPAD ENGINE", -1, &subFont, PointF(24, 42), &mutedBrush);
+
+        RectF card(24, 95, width - 48.0f, 150.0f);
         SolidBrush cardBg(Color(255, 20, 25, 38));
         fillRoundedRect(g, cardBg, card, 8.0f);
         Pen cardPen(Color(255, 40, 48, 70), 1.0f);
         drawRoundedRect(g, cardPen, card, 8.0f);
 
-        g.DrawString(L"This will install KEYTECH onto your computer:", -1, &bodyFont, PointF(40, 108), &whiteBrush);
+        if (g_state == STATE_READY) {
+            g.DrawString(L"Are you sure you want to completely remove KEYTECH?", -1, &titleFont, PointF(40, 115), &whiteBrush);
+            g.DrawString(L"This will delete shortcuts, binaries, and configurations from your PC.", -1, &bodyFont, PointF(40, 145), &mutedBrush);
+            g.DrawString(L"You can also choose to remove the ViGEmBus driver during this process.", -1, &bodyFont, PointF(40, 170), &mutedBrush);
 
-        // Path box
-        RectF pathBox(40, 134, width - 80.0f, 28.0f);
-        SolidBrush pathBg(Color(255, 14, 17, 26));
-        fillRoundedRect(g, pathBg, pathBox, 4.0f);
-        Pen pathPen(Color(255, 0, 240, 255), 1.0f);
-        drawRoundedRect(g, pathPen, pathBox, 4.0f);
+            RectF uninstBtn(width - 200, height - 56.0f, 175, 38.0f);
+            SolidBrush uBg(Color(255, 210, 30, 45));
+            fillRoundedRect(g, uBg, uninstBtn, 6.0f);
+            g.DrawString(L"UNINSTALL NOW", -1, &btnFont, uninstBtn, &sfCenter, &whiteBrush);
 
-        std::wstring wPath(g_installDir.begin(), g_installDir.end());
-        StringFormat sfLeft;
-        sfLeft.SetLineAlignment(StringAlignmentCenter);
-        g.DrawString(wPath.c_str(), -1, &bodyFont, RectF(48, 134, width - 96.0f, 28.0f), &sfLeft, &cyanBrush);
+            RectF cancelBtn(24, height - 56.0f, 110, 38.0f);
+            SolidBrush canBg(Color(255, 35, 40, 56));
+            fillRoundedRect(g, canBg, cancelBtn, 6.0f);
+            g.DrawString(L"Cancel", -1, &btnFont, cancelBtn, &sfCenter, &mutedBrush);
+        } else {
+            std::wstring stW(g_statusMsg.begin(), g_statusMsg.end());
+            g.DrawString(stW.c_str(), -1, &bodyFont, PointF(40, 140), &whiteBrush);
+        }
 
-        // Options Checkboxes
-        auto drawCheck = [&](float y, bool checked, const wchar_t* label) {
-            RectF cb(40, y, 16, 16);
-            SolidBrush cbBg(checked ? Color(255, 0, 240, 255) : Color(255, 30, 36, 52));
-            fillRoundedRect(g, cbBg, cb, 3.0f);
-            Pen cbPen(Color(255, 0, 240, 255), 1.0f);
-            drawRoundedRect(g, cbPen, cb, 3.0f);
+    } else {
+        // Installation Mode
+        g.DrawString(L"KEYTECH SETUP WIZARD", -1, &titleFont, PointF(24, 16), &cyanBrush);
+        g.DrawString(L"// DUAL VIRTUAL XBOX 360 GAMEPAD ENGINE", -1, &subFont, PointF(24, 42), &mutedBrush);
 
-            if (checked) {
-                SolidBrush markB(Color(255, 10, 14, 20));
-                g.DrawString(L"✓", -1, &bodyFont, PointF(42, y - 2), &markB);
+        if (g_state == STATE_READY) {
+            RectF card(24, 90, width - 48.0f, 195.0f);
+            SolidBrush cardBg(Color(255, 20, 25, 38));
+            fillRoundedRect(g, cardBg, card, 8.0f);
+            Pen cardPen(Color(255, 40, 48, 70), 1.0f);
+            drawRoundedRect(g, cardPen, card, 8.0f);
+
+            // ViGEmBus auto-status badge
+            RectF vigemCard(40, 104, width - 80.0f, 28.0f);
+            if (g_vigemAlreadyInstalled) {
+                SolidBrush vBg(Color(35, 0, 230, 118));
+                fillRoundedRect(g, vBg, vigemCard, 4.0f);
+                Pen vPen(Color(255, 0, 230, 118), 1.0f);
+                drawRoundedRect(g, vPen, vigemCard, 4.0f);
+                g.DrawString(L"✓ ViGEmBus Driver: Already Installed (No download needed)", -1, &badgeFont, PointF(52, 110), &greenBrush);
+            } else {
+                SolidBrush vBg(Color(35, 255, 185, 0));
+                fillRoundedRect(g, vBg, vigemCard, 4.0f);
+                Pen vPen(Color(255, 255, 185, 0), 1.0f);
+                drawRoundedRect(g, vPen, vigemCard, 4.0f);
+                g.DrawString(L"⚡ ViGEmBus Driver: Not detected (Will auto-download & install)", -1, &badgeFont, PointF(52, 110), &amberBrush);
             }
-            g.DrawString(label, -1, &bodyFont, PointF(66, y), &whiteBrush);
-        };
 
-        drawCheck(175, g_optDesktopShortcut, L"Create a Desktop Shortcut (Keytech.lnk)");
-        drawCheck(202, g_optStartMenu, L"Add to Windows Start Menu Programs");
-        drawCheck(229, g_optLaunchNow, L"Launch KEYTECH immediately after install");
+            g.DrawString(L"Install Directory (No admin rights required):", -1, &bodyFont, PointF(40, 140), &whiteBrush);
 
-        // Action Buttons at bottom
-        RectF instBtn(width - 240, height - 56.0f, 215, 38.0f);
-        SolidBrush instBg(Color(255, 0, 170, 90));
-        fillRoundedRect(g, instBg, instBtn, 6.0f);
-        Pen instPen(Color(255, 0, 230, 118), 1.2f);
-        drawRoundedRect(g, instPen, instBtn, 6.0f);
-        g.DrawString(L"INSTALL KEYTECH", -1, &btnFont, instBtn, &sfCenter, &whiteBrush);
+            RectF pathBox(40, 160, width - 80.0f, 26.0f);
+            SolidBrush pathBg(Color(255, 14, 17, 26));
+            fillRoundedRect(g, pathBg, pathBox, 4.0f);
+            Pen pathPen(Color(255, 0, 240, 255), 1.0f);
+            drawRoundedRect(g, pathPen, pathBox, 4.0f);
 
-        RectF cancelBtn(24, height - 56.0f, 110, 38.0f);
-        SolidBrush canBg(Color(255, 35, 40, 56));
-        fillRoundedRect(g, canBg, cancelBtn, 6.0f);
-        g.DrawString(L"Cancel", -1, &btnFont, cancelBtn, &sfCenter, &mutedBrush);
+            std::wstring wPath(g_installDir.begin(), g_installDir.end());
+            StringFormat sfLeft;
+            sfLeft.SetLineAlignment(StringAlignmentCenter);
+            g.DrawString(wPath.c_str(), -1, &bodyFont, RectF(48, 160, width - 96.0f, 26.0f), &sfLeft, &cyanBrush);
 
-    } else if (g_state == STATE_INSTALLING) {
-        // Progress Card
-        RectF card(24, 110, width - 48.0f, 130.0f);
-        SolidBrush cardBg(Color(255, 20, 25, 38));
-        fillRoundedRect(g, cardBg, card, 8.0f);
+            auto drawCheck = [&](float y, bool checked, const wchar_t* label) {
+                RectF cb(40, y, 16, 16);
+                SolidBrush cbBg(checked ? Color(255, 0, 240, 255) : Color(255, 30, 36, 52));
+                fillRoundedRect(g, cbBg, cb, 3.0f);
+                Pen cbPen(Color(255, 0, 240, 255), 1.0f);
+                drawRoundedRect(g, cbPen, cb, 3.0f);
 
-        g.DrawString(L"Installing KEYTECH...", -1, &titleFont, PointF(40, 130), &cyanBrush);
+                if (checked) {
+                    SolidBrush markB(Color(255, 10, 14, 20));
+                    g.DrawString(L"✓", -1, &bodyFont, PointF(42, y - 2), &markB);
+                }
+                g.DrawString(label, -1, &bodyFont, PointF(66, y), &whiteBrush);
+            };
 
-        std::wstring statusW(g_statusMsg.begin(), g_statusMsg.end());
-        g.DrawString(statusW.c_str(), -1, &bodyFont, PointF(40, 162), &whiteBrush);
+            drawCheck(196, g_optDesktopShortcut, L"Create a Desktop Shortcut (Keytech.lnk)");
+            drawCheck(220, g_optStartMenu, L"Add to Windows Start Menu Programs");
+            drawCheck(244, g_optLaunchNow, L"Launch KEYTECH immediately after install");
 
-        // Animated neon progress bar
-        RectF bar(40, 192, width - 80.0f, 12.0f);
-        SolidBrush barBg(Color(255, 14, 18, 28));
-        fillRoundedRect(g, barBg, bar, 6.0f);
+            // Install Button
+            RectF instBtn(width - 240, height - 56.0f, 215, 38.0f);
+            SolidBrush instBg(Color(255, 0, 170, 90));
+            fillRoundedRect(g, instBg, instBtn, 6.0f);
+            Pen instPen(Color(255, 0, 230, 118), 1.2f);
+            drawRoundedRect(g, instPen, instBtn, 6.0f);
+            g.DrawString(L"INSTALL KEYTECH", -1, &btnFont, instBtn, &sfCenter, &whiteBrush);
 
-        SolidBrush progBg(Color(255, 0, 240, 255));
-        float pW = (float)((GetTickCount() / 15) % (width - 80));
-        fillRoundedRect(g, progBg, RectF(40, 192, pW, 12.0f), 6.0f);
+            // Cancel Button
+            RectF cancelBtn(24, height - 56.0f, 110, 38.0f);
+            SolidBrush canBg(Color(255, 35, 40, 56));
+            fillRoundedRect(g, canBg, cancelBtn, 6.0f);
+            g.DrawString(L"Cancel", -1, &btnFont, cancelBtn, &sfCenter, &mutedBrush);
 
-    } else if (g_state == STATE_DONE) {
-        // Completion Card
-        RectF card(24, 110, width - 48.0f, 130.0f);
-        SolidBrush cardBg(Color(255, 20, 25, 38));
-        fillRoundedRect(g, cardBg, card, 8.0f);
+        } else if (g_state == STATE_INSTALLING) {
+            RectF card(24, 110, width - 48.0f, 130.0f);
+            SolidBrush cardBg(Color(255, 20, 25, 38));
+            fillRoundedRect(g, cardBg, card, 8.0f);
 
-        SolidBrush greenB(Color(255, 0, 230, 118));
-        g.DrawString(L"Installation Complete!", -1, &titleFont, PointF(40, 130), &greenB);
-        g.DrawString(L"KEYTECH has been installed successfully. Launching application...", -1, &bodyFont, PointF(40, 165), &whiteBrush);
+            g.DrawString(L"Installing KEYTECH & Drivers...", -1, &titleFont, PointF(40, 130), &cyanBrush);
 
-        RectF launchBtn(width - 180, height - 56.0f, 155, 38.0f);
-        SolidBrush lBg(Color(255, 0, 170, 90));
-        fillRoundedRect(g, lBg, launchBtn, 6.0f);
-        g.DrawString(L"Finish", -1, &btnFont, launchBtn, &sfCenter, &whiteBrush);
+            std::wstring statusW(g_statusMsg.begin(), g_statusMsg.end());
+            g.DrawString(statusW.c_str(), -1, &bodyFont, PointF(40, 162), &whiteBrush);
+
+            RectF bar(40, 192, width - 80.0f, 12.0f);
+            SolidBrush barBg(Color(255, 14, 18, 28));
+            fillRoundedRect(g, barBg, bar, 6.0f);
+
+            SolidBrush progBg(Color(255, 0, 240, 255));
+            float pW = (float)((GetTickCount() / 15) % (width - 80));
+            fillRoundedRect(g, progBg, RectF(40, 192, pW, 12.0f), 6.0f);
+
+        } else if (g_state == STATE_DONE) {
+            RectF card(24, 110, width - 48.0f, 130.0f);
+            SolidBrush cardBg(Color(255, 20, 25, 38));
+            fillRoundedRect(g, cardBg, card, 8.0f);
+
+            SolidBrush greenB(Color(255, 0, 230, 118));
+            g.DrawString(L"Installation Complete!", -1, &titleFont, PointF(40, 130), &greenB);
+            g.DrawString(L"KEYTECH & ViGEmBus ready. Both controllers active.", -1, &bodyFont, PointF(40, 165), &whiteBrush);
+
+            RectF launchBtn(width - 180, height - 56.0f, 155, 38.0f);
+            SolidBrush lBg(Color(255, 0, 170, 90));
+            fillRoundedRect(g, lBg, launchBtn, 6.0f);
+            g.DrawString(L"Finish", -1, &btnFont, launchBtn, &sfCenter, &whiteBrush);
+        }
     }
 
     BitBlt(hdc, 0, 0, width, height, memDC, 0, 0, SRCCOPY);
@@ -362,25 +573,37 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_LBUTTONDOWN: {
             int x = (short)LOWORD(lParam);
             int y = (short)HIWORD(lParam);
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+
+            if (g_isUninstallMode) {
+                if (g_state == STATE_READY) {
+                    if (x >= rc.right - 200 && x <= rc.right - 25 && y >= rc.bottom - 56 && y <= rc.bottom - 18) {
+                        CreateThread(NULL, 0, doUninstallThread, NULL, 0, NULL);
+                    }
+                    if (x >= 24 && x <= 134 && y >= rc.bottom - 56 && y <= rc.bottom - 18) {
+                        PostMessage(hwnd, WM_CLOSE, 0, 0);
+                    }
+                }
+                return 0;
+            }
 
             if (g_state == STATE_READY) {
                 // Checkboxes
-                if (x >= 40 && x <= 320 && y >= 173 && y <= 193) {
+                if (x >= 40 && x <= 340 && y >= 194 && y <= 214) {
                     g_optDesktopShortcut = !g_optDesktopShortcut;
                     InvalidateRect(hwnd, NULL, FALSE);
                 }
-                if (x >= 40 && x <= 320 && y >= 200 && y <= 220) {
+                if (x >= 40 && x <= 340 && y >= 218 && y <= 238) {
                     g_optStartMenu = !g_optStartMenu;
                     InvalidateRect(hwnd, NULL, FALSE);
                 }
-                if (x >= 40 && x <= 320 && y >= 227 && y <= 247) {
+                if (x >= 40 && x <= 340 && y >= 242 && y <= 262) {
                     g_optLaunchNow = !g_optLaunchNow;
                     InvalidateRect(hwnd, NULL, FALSE);
                 }
 
                 // Install Button
-                RECT rc;
-                GetClientRect(hwnd, &rc);
                 if (x >= rc.right - 240 && x <= rc.right - 25 && y >= rc.bottom - 56 && y <= rc.bottom - 18) {
                     CreateThread(NULL, 0, doInstallThread, NULL, 0, NULL);
                 }
@@ -421,8 +644,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow) {
+    if (strstr(lpCmdLine, "/uninstall") != NULL) {
+        g_isUninstallMode = true;
+    }
+
     g_installDir = getDefaultInstallPath();
+    g_vigemAlreadyInstalled = isViGEmBusInstalled();
 
     GdiplusStartupInput gsi;
     GdiplusStartup(&g_gdiToken, &gsi, NULL);
@@ -437,15 +665,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     wc.lpszClassName = "KeytechInstallerClass";
     RegisterClassEx(&wc);
 
-    int w = 560;
-    int h = 380;
+    int w = 580;
+    int h = 410;
     int x = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
     int y = (GetSystemMetrics(SM_CYSCREEN) - h) / 2;
 
     g_hwnd = CreateWindowEx(
         WS_EX_APPWINDOW,
         wc.lpszClassName,
-        "KEYTECH Installer",
+        g_isUninstallMode ? "KEYTECH Uninstaller" : "KEYTECH Installer",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
         x, y, w, h,
         NULL, NULL, hInstance, NULL

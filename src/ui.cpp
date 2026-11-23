@@ -205,15 +205,15 @@ static void drawHeader(Graphics& g, int width, const AppState& state) {
     g.DrawString(state.active ? L"* PADS ACTIVE [F9]" : L"II PAUSED [F9]", -1, &badgeFont, statusPill, &sfCenter, &statusTxt);
 
     // ViGEmBus driver badge
-    RectF vigemPill(400, 15, 145, 28);
-    Color vigemCol = state.vigemConnected ? Theme::STATUS_GREEN : Theme::STATUS_RED;
-    SolidBrush vigemBg(Color(30, vigemCol.GetR(), vigemCol.GetG(), vigemCol.GetB()));
-    Pen vigemPen(vigemCol, 1.0f);
+    RectF vigemPill(400, 15, 175, 28);
+    Color vigemCol = state.vigemConnected ? Theme::STATUS_GREEN : Theme::STATUS_AMBER;
+    SolidBrush vigemBg(Color(35, vigemCol.GetR(), vigemCol.GetG(), vigemCol.GetB()));
+    Pen vigemPen(vigemCol, 1.2f);
     fillRoundedRect(g, vigemBg, vigemPill, 14.0f);
     drawRoundedRect(g, vigemPen, vigemPill, 14.0f);
 
     SolidBrush vigemTxt(vigemCol);
-    g.DrawString(state.vigemConnected ? L"ViGEmBus: ONLINE" : L"ViGEmBus: MISSING", -1, &badgeFont, vigemPill, &sfCenter, &vigemTxt);
+    g.DrawString(state.vigemConnected ? L"ViGEm: ONLINE" : L"ViGEm: AUTO-INSTALL", -1, &badgeFont, vigemPill, &sfCenter, &vigemTxt);
 
     // In-Game Overlay Mode Button (F10)
     RectF overlayBtn(width - 250, 15, 140, 28);
@@ -686,6 +686,23 @@ static void drawRealisticGamepad(Graphics& g, float cx, float cy, float scale, i
 // Tab 0: Live Gamepad HUD
 // -------------------------------------------------------------
 static void drawDashboard(Graphics& g, int width, int height, const AppState& state) {
+    StringFormat sfCenter;
+    sfCenter.SetAlignment(StringAlignmentCenter);
+    sfCenter.SetLineAlignment(StringAlignmentCenter);
+
+    // Missing ViGEm driver auto-install banner
+    if (!state.vigemConnected) {
+        RectF vBanner(20, 100, width - 40.0f, 32.0f);
+        SolidBrush vBg(Color(45, 255, 185, 0));
+        fillRoundedRect(g, vBg, vBanner, 6.0f);
+        Pen vPen(Theme::STATUS_AMBER, 1.2f);
+        drawRoundedRect(g, vPen, vBanner, 6.0f);
+
+        Font warnFont(L"Segoe UI", 10, FontStyleBold, UnitPixel);
+        SolidBrush amberBrush(Theme::STATUS_AMBER);
+        g.DrawString(L"⚡ ViGEmBus Driver Not Installed: Virtual gamepads require ViGEmBus. [ CLICK HERE TO AUTO-INSTALL DRIVER ]", -1, &warnFont, vBanner, &sfCenter, &amberBrush);
+    }
+
     float midY = 115.0f + (height - 180.0f) * 0.46f;
     float p1CenterX = width * 0.27f;
     float p2CenterX = width * 0.73f;
@@ -1012,6 +1029,20 @@ void handleUIMouseDown(HWND hwnd, int x, int y, AppState& state) {
 
     if (x >= 235 && x <= 390 && y >= 15 && y <= 43) {
         PostMessage(hwnd, WM_COMMAND, 1001, 0);
+        return;
+    }
+
+    // ViGEmBus status badge (Click to auto-install if missing)
+    if (x >= 400 && x <= 585 && y >= 15 && y <= 43) {
+        if (!state.vigemConnected) {
+            PostMessage(hwnd, WM_COMMAND, 1003, 0);
+            return;
+        }
+    }
+
+    // Missing ViGEm driver banner click on Dashboard
+    if (!state.vigemConnected && state.currentTab == TAB_DASHBOARD && x >= 20 && x <= width - 20 && y >= 100 && y <= 132) {
+        PostMessage(hwnd, WM_COMMAND, 1003, 0);
         return;
     }
 
