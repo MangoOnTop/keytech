@@ -2,7 +2,7 @@
 #define MyAppName "KEYTECH"
 #define MyAppVersion "2.0"
 #define MyAppPublisher "Keytech Project"
-#define MyAppURL "https://github.com/YOUR_USERNAME/keytech"
+#define MyAppURL "https://github.com/MangoOnTop/keytech"
 #define MyAppExeName "keytech.exe"
 
 [Setup]

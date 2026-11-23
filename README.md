@@ -10,8 +10,8 @@ KEYTECH creates two virtual Xbox 360 controllers from keyboard input using [ViGE
 
 | Edition | Description | Download Link |
 |---|---|:---:|
-| **One-Click Installer** | Self-contained installer that places a shortcut on your Desktop and Start Menu, registers uninstaller, and launches automatically. | **[Download KeytechSetup.exe](https://github.com/YOUR_USERNAME/keytech/releases/latest/download/KeytechSetup.exe)** |
-| **Portable Zip** | Standalone zip package: extract and run `keytech.exe` directly without installation. | **[Download keytech-portable.zip](https://github.com/YOUR_USERNAME/keytech/releases/latest/download/keytech-portable.zip)** |
+| **One-Click Installer** | Self-contained installer that places a shortcut on your Desktop and Start Menu, registers uninstaller, and launches automatically. | **[Download KeytechSetup.exe](https://github.com/MangoOnTop/keytech/releases/latest/download/KeytechSetup.exe)** |
+| **Portable Zip** | Standalone zip package: extract and run `keytech.exe` directly without installation. | **[Download keytech-portable.zip](https://github.com/MangoOnTop/keytech/releases/latest/download/keytech-portable.zip)** |
 
 ### 🛠️ One-Click Setup (Zero Manual Driver Work):
 1. Download and double-click **`KeytechSetup.exe`**.
@@ -88,7 +88,7 @@ KEYTECH creates two virtual Xbox 360 controllers from keyboard input using [ViGE
 **Prerequisites:** [MSYS2 / MinGW-w64 (g++)](https://www.mingw-w64.org/) available on your PATH.
 
 ```bat
-git clone --recurse-submodules https://github.com/YOUR_USERNAME/keytech.git
+git clone --recurse-submodules https://github.com/MangoOnTop/keytech.git
 cd keytech
 build.bat
 ```
