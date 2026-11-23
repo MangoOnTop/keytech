@@ -35,12 +35,17 @@ struct AppState {
     // Dragging
     bool isDragging = false;
     POINT dragOffset = {0, 0};
+
+    // Mouse hover tracking for sleek interactive animations
+    int mouseX = 0;
+    int mouseY = 0;
+    DWORD animationTick = 0;
 };
 
 void initGDIPlus();
 void shutdownGDIPlus();
 
-void renderApp(HWND hwnd, HDC hdc, int width, int height, const AppState& state);
+void renderApp(HWND hwnd, HDC hdc, int width, int height, AppState& state);
 void handleUIMouseDown(HWND hwnd, int x, int y, AppState& state);
 void handleUIMouseMove(HWND hwnd, int x, int y, AppState& state);
 void handleUIMouseUp(HWND hwnd, int x, int y, AppState& state);

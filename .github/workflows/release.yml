@@ -3,7 +3,8 @@ name: Build & Release
 on:
   push:
     tags:
-      - "v*"          # triggers on tags like v1.0, v1.0.1 etc.
+      - "v*"          # Triggers on tags like v2.0, v2.1, etc.
+  workflow_dispatch:
 
 jobs:
   build:
@@ -21,34 +22,69 @@ jobs:
           msystem: MINGW64
           install: mingw-w64-x86_64-gcc
 
-      - name: Build
+      - name: Build Application & Standalone Installer
         shell: msys2 {0}
         run: |
           mkdir -p build
+          
+          # 1. Compile Main Resource
+          windres resource.rc -O coff -o resource.o
+          
+          # 2. Compile Engine
           g++ -std=c++17 -O2 \
             -I third_party/ViGEmClient/include \
             -I third_party/json \
             src/main.cpp src/mapping.cpp src/ui.cpp \
             third_party/ViGEmClient/src/ViGEmClient.cpp \
+            resource.o \
             -o build/keytech.exe \
-            -lgdiplus -lgdi32 -luser32 -ldwmapi -lcomctl32 -lwinmm -lsetupapi \
+            -lgdiplus -lgdi32 -luser32 -ldwmapi -lcomctl32 -lwinmm -lsetupapi -lole32 -luuid \
             -static-libgcc -static-libstdc++ -static -mwindows
+
+          # 3. Compile Installer Resources
+          cd installer
+          windres installer.rc -O coff -o installer.res.o
+
+          # 4. Compile One-Click Standalone Installer
+          g++ -std=c++17 -O2 \
+            installer.cpp \
+            installer.res.o \
+            -o ../build/KeytechSetup.exe \
+            -lgdiplus -lgdi32 -luser32 -lcomctl32 -lole32 -luuid \
+            -static-libgcc -static-libstdc++ -static -mwindows
+          cd ..
+
           echo "Build complete."
 
-      - name: Package release
+      - name: Package Portable Release
         shell: pwsh
         run: |
           Copy-Item config.json build\config.json
-          Compress-Archive -Path build\keytech.exe, build\config.json -DestinationPath build\keytech-${{ github.ref_name }}-windows.zip
+          Copy-Item icon.ico build\icon.ico
+          Compress-Archive -Path build\keytech.exe, build\config.json, build\icon.ico -DestinationPath build\keytech-portable.zip
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/keytech-${{ github.ref_name }}-windows.zip
+          files: |
+            build/KeytechSetup.exe
+            build/keytech-portable.zip
           body: |
-            ## keytech ${{ github.ref_name }}
+            # KEYTECH ${{ github.ref_name }} — Dual Virtual Gamepad Hub & In-Game Overlay
 
-            ### Installation
-            1. Install [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest)
-            2. Download and extract `keytech-${{ github.ref_name }}-windows.zip`
-            3. Run `keytech.exe` before launching your game
+            Play modern fighting games in local offline versus using only one keyboard!
+
+            ---
+
+            ### 🚀 One-Click Download & Installation
+            - **[Download KeytechSetup.exe (One-Click Installer)](https://github.com/${{ github.repository }}/releases/latest/download/KeytechSetup.exe)**
+              *(Downloads and installs automatically with desktop icon and start menu shortcuts. No terminal needed!)*
+            - **[Download keytech-portable.zip](https://github.com/${{ github.repository }}/releases/latest/download/keytech-portable.zip)**
+              *(Portable edition: extract and run directly without installation.)*
+
+            ---
+
+            ### Requirements
+            1. Install the official [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest) (one-time setup).
+            2. Run `KEYTECH` before launching your game.
+            3. Enjoy local versus mode in KOF XV, Street Fighter 6, Tekken 8, and more!

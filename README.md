@@ -1,32 +1,62 @@
-# KEYTECH — Dual Virtual Gamepad Hub & In-Game Overlay
+# KEYTECH // Dual Virtual Gamepad Hub & In-Game Overlay
 
 **Play modern fighting games in local offline versus using only one keyboard.**
 
-KEYTECH creates two virtual Xbox 360 controllers from keyboard input using [ViGEmBus](https://github.com/nefarius/ViGEmBus). It features a modern hardware-accelerated GUI dashboard, real-time input visualization, interactive key rebinding with conflict detection, and a floating in-game transparent overlay.
+KEYTECH creates two virtual Xbox 360 controllers from keyboard input using [ViGEmBus](https://github.com/nefarius/ViGEmBus). It features authentic realistic Xbox controller graphics, a cyberpunk tournament UI, real-time input visualization, interactive key rebinding, and a floating transparent in-game HUD.
+
+---
+
+## 🚀 One-Click Download & Install (No Terminal Needed!)
+
+| Edition | Description | Download Link |
+|---|---|:---:|
+| **One-Click Installer** | Self-contained installer that places a shortcut on your Desktop and Start Menu, registers uninstaller, and launches automatically. | **[Download KeytechSetup.exe](https://github.com/YOUR_USERNAME/keytech/releases/latest/download/KeytechSetup.exe)** |
+| **Portable Zip** | Standalone zip package: extract and run `keytech.exe` directly without installation. | **[Download keytech-portable.zip](https://github.com/YOUR_USERNAME/keytech/releases/latest/download/keytech-portable.zip)** |
+
+### 🛠️ One-Time Setup:
+1. Download and run the official [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest) installer.
+2. Download and double-click **`KeytechSetup.exe`**.
+3. Click **"INSTALL KEYTECH"** — the installer automatically places a glowing gamepad icon on your Desktop and opens the application.
+4. Launch your fighting game (KOF XV, Street Fighter 6, Tekken 8, Guilty Gear, etc.) — both controllers will be recognized automatically!
 
 ---
 
 ## ✨ Features
 
-- **Dual Virtual Xbox 360 Gamepads**: Fully detected by modern fighting games (KOF XV, Street Fighter 6, SFV, Tekken 8, Guilty Gear, KOF XIII, etc.).
-- **Live Controller Visualizer**: Side-by-side graphical Xbox 360 gamepads for Player 1 (Neon Cyan) and Player 2 (Neon Coral). Buttons, D-pad directions, and bumpers illuminate in real time when keys are pressed.
-- **In-Game Overlay Mode (`F10`)**: Transform the window into a sleek, semi-transparent, frameless, Always-On-Top HUD that floats cleanly over borderless windowed games.
-- **Interactive Key Remapping**: Click any gamepad button in the app to rebind it ("Press any key..."). Includes automatic **duplicate key conflict detection & alerts**.
-- **Ultra-low Latency (1000 Hz)**: Dedicated background worker thread polls keyboard input and updates virtual controllers at 1ms intervals.
-- **Professional Windows UI**: Smooth GDI+ double-buffered rendering, dark theme, zero command prompt window (`-mwindows`), and clean in-app Exit button.
+- **Authentic Xbox 360 Controller Graphics**:
+  - Realistic ergonomic wing handles with dual-tone grip panels.
+  - Authentic cross D-Pad in recessed circular dish.
+  - 3D glass ABXY jewel buttons with specular crescent highlights (Green, Red, Blue, Yellow).
+  - Central Xbox Guide jewel with active 4-quadrant player LED indicators (P1 Top-Left, P2 Top-Right).
+  - Left & Right analog thumbsticks with tactile grip dots.
+  - Protruding shoulder bumper bars (`LB` / `RB`).
+- **Floating In-Game Transparent Overlay (`F10`)**:
+  - Press **`F10`** to transform the window into a frameless, semi-transparent, Always-On-Top HUD that floats seamlessly over borderless windowed fighting games.
+  - Click and drag anywhere across the top bar to reposition it on your screen.
+  - Opacity presets (60%, 75%, 88%, 100%) in settings.
+- **Cyberpunk Tournament Interface**:
+  - Obsidian dark aesthetic with neon cyan and electric coral trims.
+  - Segmented arcade cabinet tabs: `[ 🎮 LIVE GAMEPAD HUD ]`, `[ ⌨ ARCADE KEY MAPPER ]`, `[ ⚙ OVERLAY & SETTINGS ]`.
+  - Active controller status badges with pulsing indicators.
+- **Arcade Key Remapper & Duplicate Conflict Alerts**:
+  - Click any button box to rebind: prompts `[PRESS ANY KEY...]` (press `ESC` to cancel).
+  - Real-time duplicate key detection warning banner if any keys conflict.
+  - One-click `Save Config` and `Reset Fightstick Defaults`.
+- **Ultra-low Latency (1000 Hz)**:
+  - Dedicated background thread polls keyboard state and feeds virtual Xbox gamepads every 1ms (<1ms input latency).
+- **Embedded Application Icon & Manifest**:
+  - Statically linked with embedded 256x256 glowing gamepad `.ico`, Windows VersionInfo, and High-DPI awareness manifest.
 
 ---
 
 ## 🎮 Hotkeys & Controls
 
-| Shortcut | Action |
+| Shortcut | Function |
 |:---:|---|
-| **F9** | **Toggle Controllers ON / OFF** (Switch between keyboard typing and gamepad mode) |
-| **F10** | **Toggle In-Game Overlay Mode** (Switch between Full Window and Floating Transparent HUD) |
-| **ESC** | Cancel key rebinding |
+| **`F9`** | **Toggle Controllers Active / Paused** (switch between keyboard typing and gaming) |
+| **`F10`** | **Toggle In-Game Overlay Mode** (switch between Full Window and Floating HUD) |
+| **`ESC`** | Cancel active key rebinding |
 | **Mouse Drag** | Drag the In-Game Overlay anywhere across your screen |
-
-> **Note:** The previous `Q` to quit shortcut has been removed. You can now use the `Q` key in mappings freely! To exit, click the **Exit** button in the app header or the standard window close button `[X]`.
 
 ---
 
@@ -49,19 +79,9 @@ KEYTECH creates two virtual Xbox 360 controllers from keyboard input using [ViGE
 
 ---
 
-## 🚀 Quick Start
-
-1. Install the official [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases/latest) (one-time requirement).
-2. Download or compile `keytech.exe`.
-3. Launch `keytech.exe` **before** launching your fighting game.
-4. Launch your game and enter Local Versus mode — both Player 1 and Player 2 controllers will be detected automatically!
-5. Press **F10** while in-game to see the floating controller overlay.
-
----
-
 ## 🛠️ Building from Source
 
-**Prerequisites:** [MSYS2 / MinGW-w64 (g++)](https://www.mingw-w64.org/) installed and available on your PATH.
+**Prerequisites:** [MSYS2 / MinGW-w64 (g++)](https://www.mingw-w64.org/) available on your PATH.
 
 ```bat
 git clone --recurse-submodules https://github.com/YOUR_USERNAME/keytech.git
@@ -69,7 +89,9 @@ cd keytech
 build.bat
 ```
 
-The resulting `build\keytech.exe` is completely self-contained with zero external runtime DLL dependencies.
+The pipeline automatically compiles:
+1. `build\KeytechSetup.exe` (Standalone self-extracting one-click installer)
+2. `build\keytech.exe` (Portable executable with embedded icon and manifest)
 
 ---
 

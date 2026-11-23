@@ -1,7 +1,20 @@
 @echo off
+setlocal enabledelayedexpansion
+
 if not exist build mkdir build
 
-echo [1/2] Compiling KEYTECH (Professional UI + In-Game Overlay)...
+echo ========================================================
+echo   KEYTECH // COMPILATION ^& PACKAGING PIPELINE
+echo ========================================================
+
+echo [1/4] Compiling Windows Resources (App Icon + Manifest)...
+windres resource.rc -O coff -o resource.o
+if errorlevel 1 (
+    echo Resource compilation failed!
+    exit /b 1
+)
+
+echo [2/4] Compiling KEYTECH Engine (Realistic Gamepads + Pro UI)...
 g++ -std=c++17 -O2 ^
     -I third_party/ViGEmClient/include ^
     -I third_party/json ^
@@ -9,6 +22,7 @@ g++ -std=c++17 -O2 ^
     src/mapping.cpp ^
     src/ui.cpp ^
     third_party/ViGEmClient/src/ViGEmClient.cpp ^
+    resource.o ^
     -o build/keytech.exe ^
     -lgdiplus ^
     -lgdi32 ^
@@ -17,27 +31,58 @@ g++ -std=c++17 -O2 ^
     -lcomctl32 ^
     -lwinmm ^
     -lsetupapi ^
+    -lole32 ^
+    -luuid ^
     -static-libgcc ^
     -static-libstdc++ ^
     -static ^
     -mwindows
 
 if errorlevel 1 (
-    echo.
-    echo Compilation failed! Please check error messages above.
+    echo Engine compilation failed!
     exit /b 1
 )
 
-echo [2/2] Verifying static binary dependencies...
-objdump -p build\keytech.exe | findstr "libgcc libstdc libwinpthread"
+echo [3/4] Compiling Installer Resources (Self-Extracting Payload)...
+cd installer
+windres installer.rc -O coff -o installer.res.o
 if errorlevel 1 (
-    echo OK - Binary is 100%% self-contained. No external runtime DLLs required!
-) else (
-    echo Note: Some MinGW DLLs were linked dynamically.
+    echo Installer resource compilation failed!
+    cd ..
+    exit /b 1
+)
+
+echo [4/4] Building Standalone One-Click Installer (KeytechSetup.exe)...
+g++ -std=c++17 -O2 ^
+    installer.cpp ^
+    installer.res.o ^
+    -o ../build/KeytechSetup.exe ^
+    -lgdiplus ^
+    -lgdi32 ^
+    -luser32 ^
+    -lcomctl32 ^
+    -lole32 ^
+    -luuid ^
+    -static-libgcc ^
+    -static-libstdc++ ^
+    -static ^
+    -mwindows
+
+cd ..
+
+if errorlevel 1 (
+    echo Installer compilation failed!
+    exit /b 1
 )
 
 echo.
+echo [Verify] Copying config.json to build folder...
+copy /Y config.json build\config.json >nul
+copy /Y icon.ico build\icon.ico >nul
+
+echo.
 echo ========================================================
-echo   KEYTECH Build Succeeded!
-echo   Run: build\keytech.exe
+echo   BUILD COMPLETE!
+echo   1. Standalone Installer : build\KeytechSetup.exe
+echo   2. Portable Engine      : build\keytech.exe
 echo ========================================================

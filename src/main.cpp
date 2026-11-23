@@ -265,6 +265,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hInstance;
+    wc.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(1));
+    wc.hIconSm = (HICON)LoadImage(hInstance, MAKEINTRESOURCE(1), IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.lpszClassName = "KeytechWindowClass";
@@ -290,6 +292,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (!g_hwnd) {
         return 1;
     }
+
+    SendMessage(g_hwnd, WM_SETICON, ICON_BIG, (LPARAM)wc.hIcon);
+    SendMessage(g_hwnd, WM_SETICON, ICON_SMALL, (LPARAM)wc.hIconSm);
 
     ShowWindow(g_hwnd, nCmdShow);
     UpdateWindow(g_hwnd);
