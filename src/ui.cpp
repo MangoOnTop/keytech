@@ -92,6 +92,21 @@ static void addRoundedRect(GraphicsPath& path, const RectF& rect, float radius) 
     path.CloseFigure();
 }
 
+// Closed Catmull-Rom spline through the supplied points. Used for the pad
+// shell so the silhouette stays smooth instead of kinking at each segment.
+static void addSmoothPath(GraphicsPath& path, const PointF* pts, int n) {
+    for (int i = 0; i < n; ++i) {
+        const PointF& p1 = pts[i];
+        const PointF& p2 = pts[(i + 1) % n];
+        const PointF& p0 = pts[(i - 1 + n) % n];
+        const PointF& p3 = pts[(i + 2) % n];
+        PointF c1(p1.X + (p2.X - p0.X) / 6.0f, p1.Y + (p2.Y - p0.Y) / 6.0f);
+        PointF c2(p2.X - (p3.X - p1.X) / 6.0f, p2.Y - (p3.Y - p1.Y) / 6.0f);
+        path.AddBezier(p1, c1, c2, p2);
+    }
+    path.CloseFigure();
+}
+
 static void fillRound(Graphics& g, const Color& color, const RectF& rect, float radius) {
     GraphicsPath path;
     addRoundedRect(path, rect, radius);
@@ -365,44 +380,50 @@ static AppLayout computeLayout(int width, int height, const AppState& state) {
 static void drawController(Graphics& g, float cx, float cy, float s, int player, const XUSB_REPORT& report) {
     Color accent = (player == 0) ? C::P1 : C::P2;
     auto penW = [&](float w) { return std::max(1.0f, w * s); };
+    auto P = [&](float x, float y) { return PointF(cx + x * s, cy + y * s); };
 
     // ---------------------------------------------------------
     // Triggers and bumpers, floating above the shell
     // ---------------------------------------------------------
     auto triggerCap = [&](float ox) {
-        RectF r(cx + ox, cy - 106 * s, 20 * s, 30 * s);
-        fillRound(g, Color(255, 26, 30, 36), r, 10 * s);
-        strokeRound(g, Color(255, 54, 60, 70), r, 10 * s, penW(1.0f));
+        RectF r(cx + ox * s, cy - 114 * s, 30 * s, 26 * s);
+        fillRound(g, Color(255, 26, 30, 36), r, 11 * s);
+        strokeRound(g, Color(255, 54, 60, 70), r, 11 * s, penW(1.0f));
     };
-    triggerCap(-80 * s);
-    triggerCap(60 * s);
+    triggerCap(-100.0f);
+    triggerCap(70.0f);
 
     auto bumper = [&](float ox, WORD mask, const wchar_t* label) {
         bool pressed = (report.wButtons & mask) != 0;
-        RectF r(cx + ox, cy - 74 * s, 28 * s, 10 * s);
-        fillRound(g, pressed ? alpha(accent, 235) : Color(255, 32, 37, 44), r, 5 * s);
-        strokeRound(g, pressed ? accent : Color(255, 52, 58, 68), r, 5 * s, penW(1.0f));
+        RectF r(cx + ox * s, cy - 84 * s, 36 * s, 13 * s);
+        fillRound(g, pressed ? alpha(accent, 235) : Color(255, 32, 37, 44), r, 6 * s);
+        strokeRound(g, pressed ? accent : Color(255, 52, 58, 68), r, 6 * s, penW(1.0f));
         Font f(L"Segoe UI", std::max(6.0f, 7.5f * s), FontStyleBold, UnitPixel);
         text(g, label, f, r, pressed ? Color(255, 12, 15, 20) : C::TextMuted, StringAlignmentCenter);
     };
-    bumper(-84 * s, XUSB_GAMEPAD_LEFT_SHOULDER, L"LB");
-    bumper(56 * s, XUSB_GAMEPAD_RIGHT_SHOULDER, L"RB");
+    bumper(-92.0f, XUSB_GAMEPAD_LEFT_SHOULDER, L"LB");
+    bumper(56.0f, XUSB_GAMEPAD_RIGHT_SHOULDER, L"RB");
 
     // ---------------------------------------------------------
     // Shell
     // ---------------------------------------------------------
+    // Gamepad silhouette: flat top, shoulders that round into the widest
+    // point, then two grips; the only notch is the arch between the grips.
+    static const float kShell[][2] = {
+        {   0, -66 }, {  46, -66 }, {  84, -60 }, { 110, -44 }, { 122, -18 }, { 126,   8 },
+        { 124,  34 }, { 118,  58 }, { 108,  78 }, {  92,  90 }, {  76,  96 }, {  62,  92 },
+        {  55,  78 }, {  50,  60 }, {  44,  44 }, {  34,  30 }, {  18,  24 }, {   0,  24 }
+    };
+    const int half = (int)(sizeof(kShell) / sizeof(kShell[0]));
+    PointF shellPts[34];
+    for (int i = 0; i < half; ++i) shellPts[i] = P(kShell[i][0], kShell[i][1]);
+    for (int i = 1; i < half - 1; ++i) {
+        int src = half - 1 - i;
+        shellPts[half + i - 1] = P(-kShell[src][0], kShell[src][1]);
+    }
+
     GraphicsPath body;
-    body.AddBezier(cx-52*s, cy-64*s, cx-22*s, cy-71*s, cx+22*s, cy-71*s, cx+52*s, cy-64*s);
-    body.AddBezier(cx+52*s, cy-64*s, cx+102*s, cy-64*s, cx+122*s, cy-38*s, cx+125*s, cy-8*s);
-    body.AddBezier(cx+125*s, cy-8*s, cx+130*s, cy+26*s, cx+122*s, cy+64*s, cx+102*s, cy+80*s);
-    body.AddBezier(cx+102*s, cy+80*s, cx+88*s, cy+90*s, cx+72*s, cy+80*s, cx+68*s, cy+58*s);
-    body.AddBezier(cx+68*s, cy+58*s, cx+60*s, cy+30*s, cx+40*s, cy+16*s, cx+24*s, cy+16*s);
-    body.AddBezier(cx+24*s, cy+16*s, cx, cy+22*s, cx, cy+22*s, cx-24*s, cy+16*s);
-    body.AddBezier(cx-24*s, cy+16*s, cx-40*s, cy+16*s, cx-60*s, cy+30*s, cx-68*s, cy+58*s);
-    body.AddBezier(cx-68*s, cy+58*s, cx-72*s, cy+80*s, cx-88*s, cy+90*s, cx-102*s, cy+80*s);
-    body.AddBezier(cx-102*s, cy+80*s, cx-122*s, cy+64*s, cx-130*s, cy+26*s, cx-125*s, cy-8*s);
-    body.AddBezier(cx-125*s, cy-8*s, cx-122*s, cy-38*s, cx-102*s, cy-64*s, cx-52*s, cy-64*s);
-    body.CloseFigure();
+    addSmoothPath(body, shellPts, half * 2 - 2);
 
     GraphicsPath* shadow = body.Clone();
     Matrix offset;
@@ -412,17 +433,18 @@ static void drawController(Graphics& g, float cx, float cy, float s, int player,
     g.FillPath(&shadowBrush, shadow);
     delete shadow;
 
-    RectF bounds(cx - 140*s, cy - 72*s, 280*s, 170*s);
-    LinearGradientBrush chassis(bounds, Color(255, 38, 43, 52), Color(255, 23, 26, 32), LinearGradientModeVertical);
+    RectF bounds(cx - 128*s, cy - 68*s, 256*s, 168*s);
+    LinearGradientBrush chassis(bounds, Color(255, 39, 44, 53), Color(255, 22, 25, 31), LinearGradientModeVertical);
     g.FillPath(&chassis, &body);
-    Pen rim(Color(255, 72, 80, 93), penW(1.2f));
+    Pen rim(Color(255, 74, 82, 95), penW(1.2f));
+    rim.SetLineJoin(LineJoinRound);
     g.DrawPath(&rim, &body);
 
     // ---------------------------------------------------------
     // Analog sticks (open rings, like the reference)
     // ---------------------------------------------------------
     auto stick = [&](float sx, float sy) {
-        float R = 24 * s;
+        float R = 20 * s;
 
         SolidBrush well(Color(255, 15, 18, 23));
         g.FillEllipse(&well, sx - R, sy - R, R * 2, R * 2);
@@ -438,56 +460,81 @@ static void drawController(Graphics& g, float cx, float cy, float s, int player,
         Pen sheen(Color(40, 255, 255, 255), penW(1.1f));
         g.DrawArc(&sheen, sx - ir + 2*s, sy - ir + 2*s, (ir - 2*s) * 2, (ir - 2*s) * 2, 200.0f, 120.0f);
     };
-    stick(cx - 64 * s, cy - 24 * s);
-    stick(cx + 64 * s, cy + 28 * s);
+    stick(cx - 56 * s, cy - 20 * s);
+    stick(cx + 52 * s, cy + 30 * s);
 
     // ---------------------------------------------------------
-    // D-pad and face buttons as four-lobe clusters
+    // D-pad: one clean plus, not a lobed disc
     // ---------------------------------------------------------
-    auto rosette = [&](float rx, float ry, float R, WORD up, WORD down, WORD left, WORD right, bool colored) {
-        SolidBrush disc(Color(255, 20, 23, 28));
-        g.FillEllipse(&disc, rx - R, ry - R, R * 2, R * 2);
-        Pen ring(Color(255, 56, 63, 74), penW(1.2f));
-        g.DrawEllipse(&ring, rx - R, ry - R, R * 2, R * 2);
+    auto drawDpad = [&](float dx, float dy) {
+        const float A = 22.0f;   // half length
+        const float T = 8.2f;    // half thickness
 
-        auto arm = [&](float ax, float ay, float aw, float ah, WORD mask, const Color& col) {
-            bool pressed = (report.wButtons & mask) != 0;
-            RectF r(ax, ay, aw, ah);
-            Color fillC = pressed ? col : (colored ? alpha(col, 42) : Color(255, 33, 38, 45));
-            Color lineC = pressed ? col : (colored ? alpha(col, 170) : Color(255, 66, 73, 85));
-            fillRound(g, fillC, r, 6 * s);
-            strokeRound(g, lineC, r, 6 * s, penW(1.2f));
+        PointF pts[12] = {
+            P(dx - T, dy - A), P(dx + T, dy - A), P(dx + T, dy - T), P(dx + A, dy - T),
+            P(dx + A, dy + T), P(dx + T, dy + T), P(dx + T, dy + A), P(dx - T, dy + A),
+            P(dx - T, dy + T), P(dx - A, dy + T), P(dx - A, dy - T), P(dx - T, dy - T)
         };
 
-        float armW = R * 0.72f;
-        float armL = R * 0.58f;
-        float off  = R * 0.26f;
+        GraphicsPath cross;
+        cross.AddPolygon(pts, 12);
 
-        arm(rx - armW * 0.5f, ry - off - armL, armW, armL, up,    C::XboxY);
-        arm(rx - armW * 0.5f, ry + off,        armW, armL, down,  C::XboxA);
-        arm(rx - off - armL, ry - armW * 0.5f, armL, armW, left,  C::XboxX);
-        arm(rx + off,        ry - armW * 0.5f, armL, armW, right, C::XboxB);
+        SolidBrush base(Color(255, 20, 23, 29));
+        g.FillPath(&base, &cross);
+        Pen rimPen(Color(255, 62, 70, 82), penW(1.2f));
+        rimPen.SetLineJoin(LineJoinRound);
+        g.DrawPath(&rimPen, &cross);
+
+        auto lit = [&](float x, float y, float w, float h, WORD mask) {
+            if ((report.wButtons & mask) == 0) return;
+            fillRound(g, alpha(C::Text, 235), RectF(cx + x * s, cy + y * s, w * s, h * s), 3.0f * s);
+        };
+        lit(dx - T + 1, dy - A + 1.5f, 2 * T - 2, A - T - 1.5f, XUSB_GAMEPAD_DPAD_UP);
+        lit(dx - T + 1, dy + T,        2 * T - 2, A - T - 1.5f, XUSB_GAMEPAD_DPAD_DOWN);
+        lit(dx - A + 1, dy - T + 1.5f, A - T - 1.5f, 2 * T - 2, XUSB_GAMEPAD_DPAD_LEFT);
+        lit(dx + T,     dy - T + 1.5f, A - T - 1.5f, 2 * T - 2, XUSB_GAMEPAD_DPAD_RIGHT);
+    };
+    drawDpad(-48.0f, 24.0f);
+
+    // ---------------------------------------------------------
+    // Face buttons: four separate round buttons in a diamond
+    // ---------------------------------------------------------
+    auto faceButton = [&](float bx, float by, WORD mask, const wchar_t* label, const Color& col) {
+        bool pressed = (report.wButtons & mask) != 0;
+        float r = 9.5f * s;
+        float x = cx + bx * s;
+        float y = cy + by * s;
+
+        SolidBrush fill(pressed ? col : Color(255, 26, 30, 37));
+        g.FillEllipse(&fill, x - r, y - r, r * 2, r * 2);
+        Pen rimPen(pressed ? mix(col, Color(255, 255, 255, 255), 0.35f) : alpha(col, 200), penW(1.3f));
+        g.DrawEllipse(&rimPen, x - r, y - r, r * 2, r * 2);
+
+        Font f(L"Segoe UI", std::max(7.0f, 10.0f * s), FontStyleBold, UnitPixel);
+        text(g, label, f, RectF(x - r, y - r, r * 2, r * 2),
+             pressed ? Color(255, 14, 17, 22) : col, StringAlignmentCenter);
     };
 
-    rosette(cx - 38 * s, cy + 26 * s, 24 * s, XUSB_GAMEPAD_DPAD_UP, XUSB_GAMEPAD_DPAD_DOWN,
-            XUSB_GAMEPAD_DPAD_LEFT, XUSB_GAMEPAD_DPAD_RIGHT, false);
-
-    rosette(cx + 40 * s, cy - 22 * s, 24 * s, XUSB_GAMEPAD_Y, XUSB_GAMEPAD_A,
-            XUSB_GAMEPAD_X, XUSB_GAMEPAD_B, true);
+    const float fcx = 54.0f, fcy = -22.0f, fgap = 17.0f;
+    faceButton(fcx,      fcy - fgap, XUSB_GAMEPAD_Y, L"Y", C::XboxY);
+    faceButton(fcx,      fcy + fgap, XUSB_GAMEPAD_A, L"A", C::XboxA);
+    faceButton(fcx - fgap, fcy,      XUSB_GAMEPAD_X, L"X", C::XboxX);
+    faceButton(fcx + fgap, fcy,      XUSB_GAMEPAD_B, L"B", C::XboxB);
 
     // ---------------------------------------------------------
     // View / Menu dots between the clusters
     // ---------------------------------------------------------
     auto dotButton = [&](float dx, WORD mask) {
         bool pressed = (report.wButtons & mask) != 0;
-        float r = 4.2f * s;
-        SolidBrush fill(pressed ? accent : Color(255, 34, 39, 47));
-        g.FillEllipse(&fill, cx + dx - r, cy - 16 * s - r, r * 2, r * 2);
+        float r = 4.5f * s;
+        float dy = 4.0f * s;
+        SolidBrush fill(pressed ? accent : Color(255, 33, 38, 45));
+        g.FillEllipse(&fill, cx + dx - r, cy + dy - r, r * 2, r * 2);
         Pen rimPen(pressed ? accent : Color(255, 66, 73, 85), penW(1.0f));
-        g.DrawEllipse(&rimPen, cx + dx - r, cy - 16 * s - r, r * 2, r * 2);
+        g.DrawEllipse(&rimPen, cx + dx - r, cy + dy - r, r * 2, r * 2);
     };
-    dotButton(-8 * s, XUSB_GAMEPAD_BACK);
-    dotButton(6 * s, XUSB_GAMEPAD_START);
+    dotButton(-11 * s, XUSB_GAMEPAD_BACK);
+    dotButton(11 * s, XUSB_GAMEPAD_START);
 }
 
 // -------------------------------------------------------------
@@ -674,9 +721,14 @@ static void drawOverview(Graphics& g, int height, const AppState& state, const A
         text(g, p == 0 ? L"WASD and action keys" : L"Arrow keys and numpad",
              hintFont, RectF(x + 20.0f, top + cardH - 30.0f, cardW - 40.0f, 16.0f), C::TextMuted);
 
-        float scale = std::min((cardW - 34.0f) / 282.0f, (cardH - 120.0f) / 208.0f);
-        scale = std::max(0.55f, std::min(scale, 1.25f));
-        drawController(g, x + cardW * 0.5f, top + 52.0f + (cardH - 80.0f) * 0.53f, scale, p, state.liveReports[p]);
+        // The art spans y -114..95 around its centre, so bias by ~9 units to keep it
+        // optically centred between the card header and the footer hint.
+        float artTop = top + 60.0f;
+        float artBottom = top + cardH - 42.0f;
+        float scale = std::min((cardW - 40.0f) / 262.0f, (artBottom - artTop) / 218.0f);
+        scale = std::max(0.55f, std::min(scale, 1.15f));
+        drawController(g, x + cardW * 0.5f, (artTop + artBottom) * 0.5f + 10.0f * scale,
+                       scale, p, state.liveReports[p]);
     }
 
     Font footFont(L"Segoe UI", 10.5f, FontStyleRegular, UnitPixel);
@@ -908,11 +960,11 @@ static void drawOverlay(Graphics& g, int width, int height, const AppState& stat
         Color accent = (p == 0) ? C::P1 : C::P2;
 
         SolidBrush pd(accent);
-        g.FillEllipse(&pd, centerX - 34.0f, 54.0f, 6.0f, 6.0f);
+        g.FillEllipse(&pd, centerX - 34.0f, 53.0f, 6.0f, 6.0f);
         text(g, p == 0 ? L"Player 1" : L"Player 2", labelFont,
-             RectF(centerX - 24.0f, 47.0f, 110.0f, 20.0f), accent);
+             RectF(centerX - 24.0f, 46.0f, 110.0f, 18.0f), accent);
 
-        drawController(g, centerX, 166.0f, 0.9f, p, state.liveReports[p]);
+        drawController(g, centerX, 170.0f, 0.88f, p, state.liveReports[p]);
     }
 }
 

@@ -30,7 +30,7 @@ static bool g_optDesktopShortcut = true;
 static bool g_optStartMenu = true;
 static bool g_optLaunchNow = true;
 static bool g_vigemAlreadyInstalled = false;
-static std::string g_statusMsg = "Ready to install KEYTECH v2.0";
+static std::string g_statusMsg = "Ready to install KEYTECH v2.1.1";
 static std::string g_errorMsg = "";
 static std::string g_installDir = "";
 
@@ -196,7 +196,7 @@ void registerUninstaller(const std::string& installDir) {
         std::string name = "KEYTECH - Dual Virtual Gamepad Hub";
         std::string exe = installDir + "\\keytech.exe";
         std::string icon = installDir + "\\icon.ico";
-        std::string ver = "2.0.0";
+        std::string ver = "2.1.1";
         std::string pub = "Keytech Project";
         std::string uninst = "\"" + installDir + "\\KeytechSetup.exe\" /uninstall";
 
