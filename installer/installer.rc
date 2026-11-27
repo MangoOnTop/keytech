@@ -6,8 +6,8 @@
 103 RCDATA "../icon.ico"
 
 1 VERSIONINFO
-FILEVERSION 2,0,0,0
-PRODUCTVERSION 2,0,0,0
+FILEVERSION 2,1,0,0
+PRODUCTVERSION 2,1,0,0
 FILEOS 0x40004
 FILETYPE 0x1
 BEGIN
@@ -17,12 +17,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Keytech Project"
             VALUE "FileDescription", "KEYTECH Setup Wizard"
-            VALUE "FileVersion", "2.0.0.0"
+            VALUE "FileVersion", "2.1.0.0"
             VALUE "InternalName", "KeytechSetup"
             VALUE "LegalCopyright", "Copyright (c) 2026 tohfa"
             VALUE "OriginalFilename", "KeytechSetup.exe"
             VALUE "ProductName", "KEYTECH Setup"
-            VALUE "ProductVersion", "2.0.0.0"
+            VALUE "ProductVersion", "2.1.0.0"
         END
     END
     BLOCK "VarFileInfo"
