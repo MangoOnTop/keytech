@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <dwmapi.h>
 #include <iostream>
 #include <thread>
 #include <atomic>
@@ -37,11 +38,14 @@ void toggleOverlayMode() {
         SetLayeredWindowAttributes(g_hwnd, 0, (BYTE)g_state.overlayOpacity, LWA_ALPHA);
 
         // Position overlay near the top-center of screen
-        int scrW = GetSystemMetrics(SM_CXSCREEN);
         int overlayW = 760;
-        int overlayH = 220;
-        int overlayX = (scrW - overlayW) / 2;
-        int overlayY = 30;
+        int overlayH = 264;
+
+        // Spawn in the lower middle of the usable screen area
+        RECT work = { 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
+        SystemParametersInfo(SPI_GETWORKAREA, 0, &work, 0);
+        int overlayX = work.left + (work.right - work.left - overlayW) / 2;
+        int overlayY = work.bottom - overlayH - 40;
 
         SetWindowPos(g_hwnd, HWND_TOPMOST, overlayX, overlayY, overlayW, overlayH, SWP_SHOWWINDOW | SWP_FRAMECHANGED);
     } else {
@@ -55,8 +59,8 @@ void toggleOverlayMode() {
         int w = g_prevWindowRect.right - g_prevWindowRect.left;
         int h = g_prevWindowRect.bottom - g_prevWindowRect.top;
         if (w < 600 || h < 400) {
-            w = 860;
-            h = 580;
+            w = 980;
+            h = 640;
         }
 
         SetWindowPos(g_hwnd, HWND_NOTOPMOST, g_prevWindowRect.left, g_prevWindowRect.top, w, h, SWP_SHOWWINDOW | SWP_FRAMECHANGED);
@@ -86,7 +90,7 @@ LRESULT CALLBACK keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
                 } else if (k->vkCode != VK_F9 && k->vkCode != VK_F10) {
                     setMapping(g_state.rebindingPlayer, g_state.rebindingButton, k->vkCode);
                     std::string kn = getKeyName(k->vkCode);
-                    triggerToast(g_state, "Remapped to [" + kn + "]! Remember to Save.");
+                    triggerToast(g_state, "Mapped to " + kn + " — remember to save");
                     g_state.rebindingPlayer = -1;
                     g_state.rebindingButton = 0;
                 }
@@ -99,7 +103,7 @@ LRESULT CALLBACK keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
         if (k->vkCode == VK_F9) {
             if (down) {
                 g_state.active = !g_state.active;
-                triggerToast(g_state, g_state.active ? "Controllers ACTIVE" : "Controllers PAUSED");
+                triggerToast(g_state, g_state.active ? "Controllers active" : "Controllers paused");
                 if (g_hwnd) InvalidateRect(g_hwnd, NULL, FALSE);
             }
             return 1; // Always swallow F9
@@ -178,7 +182,7 @@ bool connectViGEm() {
 }
 
 DWORD WINAPI autoInstallViGEmWorker(LPVOID) {
-    triggerToast(g_state, "Downloading ViGEmBus installer...");
+    triggerToast(g_state, "Downloading the ViGEmBus installer…");
     if (g_hwnd) InvalidateRect(g_hwnd, NULL, FALSE);
 
     char tempDir[MAX_PATH];
@@ -196,7 +200,7 @@ DWORD WINAPI autoInstallViGEmWorker(LPVOID) {
     }
 
     if (downloaded) {
-        triggerToast(g_state, "Installing driver (Approve Windows UAC prompt)...");
+        triggerToast(g_state, "Installing the driver — approve the Windows prompt");
         if (g_hwnd) InvalidateRect(g_hwnd, NULL, FALSE);
 
         SHELLEXECUTEINFOA sei = { sizeof(sei) };
@@ -213,9 +217,9 @@ DWORD WINAPI autoInstallViGEmWorker(LPVOID) {
     }
 
     if (connectViGEm()) {
-        triggerToast(g_state, "ViGEmBus Online! Dual Gamepads Active.");
+        triggerToast(g_state, "ViGEmBus connected — both gamepads are active");
     } else {
-        triggerToast(g_state, "Could not connect to ViGEmBus driver.");
+        triggerToast(g_state, "Could not connect to the ViGEmBus driver");
     }
 
     if (g_hwnd) InvalidateRect(g_hwnd, NULL, FALSE);
@@ -227,6 +231,19 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE: {
             SetTimer(hwnd, 1, 16, NULL); // ~60 FPS repaint timer
+
+            // Match the native frame to the app theme (Windows 10/11)
+            BOOL darkFrame = TRUE;
+            DwmSetWindowAttribute(hwnd, 20, &darkFrame, sizeof(darkFrame)); // DWMWA_USE_IMMERSIVE_DARK_MODE
+            DwmSetWindowAttribute(hwnd, 19, &darkFrame, sizeof(darkFrame)); // older Win10 builds
+
+            COLORREF caption = RGB(12, 14, 17);
+            DwmSetWindowAttribute(hwnd, 35, &caption, sizeof(caption));   // DWMWA_CAPTION_COLOR
+            COLORREF frameText = RGB(232, 235, 239);
+            DwmSetWindowAttribute(hwnd, 36, &frameText, sizeof(frameText)); // DWMWA_TEXT_COLOR
+
+            DWORD corners = 2; // DWMWCP_ROUND
+            DwmSetWindowAttribute(hwnd, 33, &corners, sizeof(corners));
             return 0;
         }
 
@@ -241,7 +258,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (LOWORD(wParam) == 1001) {
                 // Toggle F9
                 g_state.active = !g_state.active;
-                triggerToast(g_state, g_state.active ? "Controllers ACTIVE" : "Controllers PAUSED");
+                triggerToast(g_state, g_state.active ? "Controllers active" : "Controllers paused");
                 InvalidateRect(hwnd, NULL, FALSE);
             } else if (LOWORD(wParam) == 1002) {
                 // Toggle F10 Overlay
@@ -263,7 +280,21 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_MOUSEMOVE: {
             int x = (short)LOWORD(lParam);
             int y = (short)HIWORD(lParam);
+
+            TRACKMOUSEEVENT tme = {};
+            tme.cbSize = sizeof(tme);
+            tme.dwFlags = TME_LEAVE;
+            tme.hwndTrack = hwnd;
+            TrackMouseEvent(&tme);
+
             handleUIMouseMove(hwnd, x, y, g_state);
+            return 0;
+        }
+
+        case WM_MOUSELEAVE: {
+            g_state.mouseX = -1;
+            g_state.mouseY = -1;
+            InvalidateRect(hwnd, NULL, FALSE);
             return 0;
         }
 
@@ -407,8 +438,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     RegisterClassEx(&wc);
 
     // 5. Create Main Application Window
-    int initW = 860;
-    int initH = 580;
+    int initW = 980;
+    int initH = 640;
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);
     int posX = (screenW - initW) / 2;
@@ -417,7 +448,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     g_hwnd = CreateWindowEx(
         WS_EX_APPWINDOW,
         wc.lpszClassName,
-        "KEYTECH - Dual Gamepad Hub & In-Game Overlay",
+        "Keytech",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
         posX, posY, initW, initH,
         NULL, NULL, hInstance, NULL
